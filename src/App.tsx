@@ -1,1558 +1,1216 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import {
-  Activity,
-  BadgeCheck,
   Ban,
-  BarChart3,
   Bell,
   Check,
+  CircleDollarSign,
   Coins,
-  Crown,
-  Flame,
-  Gamepad2,
-  Gift,
-  Hand,
-  Home,
+  Edit3,
   Lock,
   LogOut,
-  Megaphone,
   MessageCircle,
   Mic,
   MicOff,
+  Phone,
   PhoneOff,
   Plus,
   Radio,
-  RefreshCw,
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
-  Star,
-  Trophy,
-  Unlock,
   UserPlus,
-  UserRound,
   Users,
   WalletCards,
-  X,
-  Zap,
 } from 'lucide-react';
-import { usePersistentState } from './hooks/usePersistentState';
-import { useVoiceMeter } from './hooks/useVoiceMeter';
-import { createInitialState } from './lib/seed';
-import { cx, formatDate, formatNumber, formatTime, resetAppState, uid } from './lib/storage';
-import type {
-  AppState,
-  Gift as GiftType,
-  MessageThread,
-  NotificationItem,
-  PaymentMethod,
-  Room,
-  Transaction,
-  User,
-  ViewId,
-  VipPlan,
-} from './types/app';
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
+import { cx, formatDate, formatNumber, formatTime } from './lib/format';
 
-type NavItem = {
-  id: ViewId;
-  label: string;
-  icon: typeof Home;
+type View = 'rooms' | 'messages' | 'people' | 'wallet' | 'profile' | 'admin';
+
+type Profile = {
+  id: string;
+  email: string | null;
+  full_name: string;
+  handle: string;
+  avatar_url: string | null;
+  cover_url: string | null;
+  bio: string;
+  interests: string[];
+  level: number;
+  vip_tier: string;
+  coins: number;
+  earnings: number;
+  is_admin: boolean;
+  is_blocked: boolean;
+  created_at: string;
 };
 
-const navItems: NavItem[] = [
-  { id: 'home', label: 'Home', icon: Home },
+type Room = {
+  id: string;
+  title: string;
+  topic: string;
+  description: string;
+  host_id: string;
+  capacity: number;
+  is_live: boolean;
+  is_locked: boolean;
+  created_at: string;
+  ended_at: string | null;
+};
+
+type RoomParticipant = {
+  room_id: string;
+  user_id: string;
+  role: 'host' | 'speaker' | 'listener';
+  muted: boolean;
+  speaking: boolean;
+  joined_at: string;
+  profiles?: Profile;
+};
+
+type RoomMessage = {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  body: string;
+  kind: 'chat' | 'system' | 'gift';
+  created_at: string;
+  profiles?: Profile;
+};
+
+type GiftItem = {
+  id: string;
+  name: string;
+  label: string;
+  price: number;
+  accent: string;
+  is_active: boolean;
+};
+
+type CoinPackage = {
+  id: string;
+  name: string;
+  coins: number;
+  amount_pkr: number;
+  provider: 'jazzcash' | 'easypaisa' | 'manual';
+  is_active: boolean;
+};
+
+type CoinPurchase = {
+  id: string;
+  user_id: string;
+  package_id: string;
+  provider: string;
+  amount_pkr: number;
+  coins: number;
+  status: 'pending' | 'completed' | 'failed';
+  provider_reference: string | null;
+  created_at: string;
+  completed_at: string | null;
+  profiles?: Profile;
+};
+
+type ConversationSummary = {
+  id: string;
+  other: Profile;
+  lastMessage: string;
+};
+
+type DirectMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
+
+const navItems: Array<{ id: View; label: string; icon: typeof Radio }> = [
   { id: 'rooms', label: 'Rooms', icon: Radio },
   { id: 'messages', label: 'Messages', icon: MessageCircle },
-  { id: 'profile', label: 'Profile', icon: UserRound },
+  { id: 'people', label: 'People', icon: Users },
   { id: 'wallet', label: 'Wallet', icon: WalletCards },
-  { id: 'vip', label: 'VIP', icon: Crown },
-  { id: 'games', label: 'Games', icon: Gamepad2 },
+  { id: 'profile', label: 'Profile', icon: Edit3 },
   { id: 'admin', label: 'Admin', icon: ShieldCheck },
 ];
 
-const coinPackages = [
-  { label: 'Starter', coins: 500, price: 'Demo Rs 0', method: 'Demo Coins' as PaymentMethod },
-  { label: 'Social', coins: 1500, price: 'JazzCash-ready', method: 'JazzCash' as PaymentMethod },
-  { label: 'Host Pack', coins: 4000, price: 'EasyPaisa-ready', method: 'EasyPaisa' as PaymentMethod },
-];
-
-const topics = ['All', 'Music', 'Mini Games', 'Study', 'Stories', 'Wellness'];
+const fallbackAvatar = 'assets/avatar-zain.png';
+const fallbackCover = 'assets/room-aurora.png';
 
 function App() {
-  const [state, setState] = usePersistentState();
-  const [view, setView] = useState<ViewId>('home');
-  const [showSplash, setShowSplash] = useState(true);
-  const [showSimulationNotice, setShowSimulationNotice] = useState(
-    () => localStorage.getItem('voxora-simulation-notice-v1') !== 'seen',
-  );
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(state.rooms[0]?.id ?? null);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [participants, setParticipants] = useState<RoomParticipant[]>([]);
+  const [roomMessages, setRoomMessages] = useState<RoomMessage[]>([]);
+  const [gifts, setGifts] = useState<GiftItem[]>([]);
+  const [coinPackages, setCoinPackages] = useState<CoinPackage[]>([]);
+  const [purchases, setPurchases] = useState<CoinPurchase[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [view, setView] = useState<View>('rooms');
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
 
-  const currentUser = useMemo(
-    () => state.users.find((user) => user.id === state.sessionUserId) ?? null,
-    [state.sessionUserId, state.users],
+  const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0] ?? null;
+  const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? conversations[0] ?? null;
+  const roomParticipants = useMemo(
+    () => (activeRoom ? participants.filter((item) => item.room_id === activeRoom.id) : []),
+    [activeRoom, participants],
+  );
+  const messagesForRoom = activeRoom ? roomMessages.filter((item) => item.room_id === activeRoom.id) : [];
+
+  const myParticipant = useMemo(
+    () => roomParticipants.find((item) => item.user_id === profile?.id) ?? null,
+    [profile?.id, roomParticipants],
   );
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setShowSplash(false), 900);
-    return () => window.clearTimeout(timeout);
+    if (!supabase) {
+      queueMicrotask(() => setLoading(false));
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => data.subscription.unsubscribe();
   }, []);
 
-  const unreadCount = state.notifications.filter((notification) => !notification.read).length;
-  const activeRoom = state.rooms.find((room) => room.id === activeRoomId) ?? state.rooms[0] ?? null;
-
-  const pushNotification = (notification: Omit<NotificationItem, 'id' | 'time' | 'read'>) => {
-    setState((previous) => ({
-      ...previous,
-      notifications: [
-        {
-          id: uid('nt'),
-          time: new Date().toISOString(),
-          read: false,
-          ...notification,
-        },
-        ...previous.notifications,
-      ],
-    }));
-  };
-
-  const handleAuth = (mode: 'login' | 'register', form: FormData) => {
-    const name = String(form.get('name') ?? '').trim() || 'Voxora Guest';
-    const handle = String(form.get('handle') ?? '').trim().toLowerCase().replace(/[^a-z0-9._]/g, '') || 'guest';
-    const bio = String(form.get('bio') ?? '').trim() || 'New to Voxora and ready to join the room.';
-
-    setState((previous) => {
-      const existing = previous.users.find((user) => user.handle.toLowerCase() === handle);
-      if (mode === 'login' && existing) {
-        return { ...previous, sessionUserId: existing.id };
-      }
-
-      const id = uid('user');
-      const newUser: User = {
-        id,
-        name,
-        handle,
-        avatar: 'assets/avatar-zain.png',
-        cover: 'assets/room-aurora.png',
-        bio,
-        followers: [],
-        following: ['user-sana'],
-        level: 1,
-        vipTier: 'Free',
-        coins: 1000,
-        earnings: 0,
-        popularity: 10,
-        activity: 12,
-        blocked: false,
-        badges: ['New Voice'],
-        interests: ['Friends', 'Music'],
-        joinedAt: new Date().toISOString(),
-      };
-
-      return {
-        ...previous,
-        sessionUserId: id,
-        users: [newUser, ...previous.users],
-        notifications: [
-          {
-            id: uid('nt'),
-            type: 'system',
-            title: 'Profile ready',
-            body: 'Your Voxora profile and starter wallet are active.',
-            time: new Date().toISOString(),
-            read: false,
-          },
-          ...previous.notifications,
-        ],
-      };
-    });
-  };
-
-  const signOut = () => {
-    setState((previous) => ({ ...previous, sessionUserId: null }));
-    setView('home');
-  };
-
-  const resetDemo = () => {
-    setState(resetAppState());
-    setActiveRoomId(createInitialState().rooms[0].id);
-    setView('home');
-  };
-
-  const closeSimulationNotice = () => {
-    localStorage.setItem('voxora-simulation-notice-v1', 'seen');
-    setShowSimulationNotice(false);
-  };
-
-  const markNotificationsRead = () => {
-    setState((previous) => ({
-      ...previous,
-      notifications: previous.notifications.map((notification) => ({ ...notification, read: true })),
-    }));
-  };
-
-  const updateCurrentUser = (patch: Partial<User>) => {
-    if (!currentUser) {
+  useEffect(() => {
+    if (!supabase || !session?.user.id) {
+      queueMicrotask(() => setProfile(null));
       return;
     }
 
-    setState((previous) => ({
-      ...previous,
-      users: previous.users.map((user) => (user.id === currentUser.id ? { ...user, ...patch } : user)),
-    }));
-  };
+    const client = supabase;
+    void loadAppData(session.user.id);
 
-  const toggleFollow = (targetId: string) => {
-    if (!currentUser || targetId === currentUser.id) {
-      return;
-    }
+    const channel = client
+      .channel('voxora-db')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        void loadAppData(session.user.id, false);
+      })
+      .subscribe();
 
-    setState((previous) => {
-      const viewer = previous.users.find((user) => user.id === currentUser.id);
-      const target = previous.users.find((user) => user.id === targetId);
-      if (!viewer || !target) {
-        return previous;
-      }
-
-      const following = viewer.following.includes(targetId);
-      const notifications = following
-        ? previous.notifications
-        : [
-            {
-              id: uid('nt'),
-              type: 'follower' as const,
-              title: 'Followed creator',
-              body: `You are now following ${target.name}.`,
-              time: new Date().toISOString(),
-              read: false,
-            },
-            ...previous.notifications,
-          ];
-
-      return {
-        ...previous,
-        users: previous.users.map((user) => {
-          if (user.id === viewer.id) {
-            return {
-              ...user,
-              following: following
-                ? user.following.filter((id) => id !== targetId)
-                : [...user.following, targetId],
-              activity: Math.min(100, user.activity + (following ? -1 : 2)),
-            };
-          }
-
-          if (user.id === targetId) {
-            return {
-              ...user,
-              followers: following
-                ? user.followers.filter((id) => id !== viewer.id)
-                : [...user.followers, viewer.id],
-              popularity: Math.max(0, Math.min(100, user.popularity + (following ? -2 : 3))),
-            };
-          }
-
-          return user;
-        }),
-        notifications,
-      };
-    });
-  };
-
-  const createRoom = (form: FormData) => {
-    if (!currentUser) {
-      return;
-    }
-
-    const room: Room = {
-      id: uid('room'),
-      title: String(form.get('title') ?? '').trim() || `${currentUser.name}'s Room`,
-      topic: String(form.get('topic') ?? 'Music'),
-      language: String(form.get('language') ?? 'Urdu / English'),
-      hostId: currentUser.id,
-      hostName: currentUser.name,
-      cover: 'assets/room-aurora.png',
-      mood: String(form.get('mood') ?? 'Live'),
-      description: String(form.get('description') ?? '').trim() || 'A fresh Voxora room is live.',
-      tags: String(form.get('tags') ?? 'Voice, Friends')
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-        .slice(0, 4),
-      participants: [
-        {
-          userId: currentUser.id,
-          name: currentUser.name,
-          avatar: currentUser.avatar,
-          role: 'host',
-          muted: false,
-          speaking: true,
-          vipTier: currentUser.vipTier,
-        },
-      ],
-      capacity: Number(form.get('capacity') ?? 18),
-      live: true,
-      locked: false,
-      giftsReceived: 0,
-      raisedHands: [],
-      messages: [
-        {
-          id: uid('rm'),
-          userId: currentUser.id,
-          name: currentUser.name,
-          body: 'Room is live.',
-          time: new Date().toISOString(),
-          kind: 'system',
-        },
-      ],
-      startedAt: new Date().toISOString(),
+    return () => {
+      void client.removeChannel(channel);
     };
+    // loadAppData intentionally reads latest state when realtime events arrive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
-    setState((previous) => ({
-      ...previous,
-      rooms: [room, ...previous.rooms],
-      users: previous.users.map((user) =>
-        user.id === currentUser.id ? { ...user, activity: Math.min(100, user.activity + 5) } : user,
-      ),
-    }));
-    setActiveRoomId(room.id);
-    setView('rooms');
-  };
-
-  const joinRoom = (roomId: string) => {
-    if (!currentUser) {
+  async function loadAppData(userId: string, showLoader = true) {
+    if (!supabase) {
       return;
     }
 
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
-
-        const alreadyInside = room.participants.some((participant) => participant.userId === currentUser.id);
-        if (alreadyInside || room.participants.length >= room.capacity || room.locked || !room.live) {
-          return room;
-        }
-
-        return {
-          ...room,
-          participants: [
-            ...room.participants,
-            {
-              userId: currentUser.id,
-              name: currentUser.name,
-              avatar: currentUser.avatar,
-              role: 'listener',
-              muted: true,
-              speaking: false,
-              vipTier: currentUser.vipTier,
-            },
-          ],
-          messages: [
-            ...room.messages,
-            {
-              id: uid('rm'),
-              userId: currentUser.id,
-              name: currentUser.name,
-              body: `${currentUser.name} joined the room.`,
-              time: new Date().toISOString(),
-              kind: 'system',
-            },
-          ],
-        };
-      }),
-      users: previous.users.map((user) =>
-        user.id === currentUser.id ? { ...user, activity: Math.min(100, user.activity + 2) } : user,
-      ),
-    }));
-    setActiveRoomId(roomId);
-    setView('rooms');
-  };
-
-  const leaveRoom = (roomId: string) => {
-    if (!currentUser) {
-      return;
+    if (showLoader) {
+      setLoading(true);
     }
 
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
+    const [
+      profileResult,
+      profilesResult,
+      roomsResult,
+      participantsResult,
+      roomMessagesResult,
+      giftsResult,
+      packagesResult,
+      purchasesResult,
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('rooms').select('*').order('created_at', { ascending: false }),
+      supabase.from('room_participants').select('*, profiles(*)'),
+      supabase.from('room_messages').select('*, profiles(*)').order('created_at', { ascending: true }),
+      supabase.from('gifts').select('*').eq('is_active', true).order('price', { ascending: true }),
+      supabase.from('coin_packages').select('*').eq('is_active', true).order('amount_pkr', { ascending: true }),
+      supabase.from('coin_purchases').select('*, profiles(*)').order('created_at', { ascending: false }),
+    ]);
 
-        if (room.hostId === currentUser.id) {
-          return { ...room, live: false, participants: room.participants.filter((p) => p.userId !== currentUser.id) };
-        }
-
-        return {
-          ...room,
-          participants: room.participants.filter((participant) => participant.userId !== currentUser.id),
-        };
-      }),
-    }));
-    setActiveRoomId(null);
-  };
-
-  const sendRoomMessage = (roomId: string, body: string) => {
-    if (!currentUser || !body.trim()) {
-      return;
+    if (profileResult.data) {
+      setProfile(profileResult.data as Profile);
     }
+    setProfiles((profilesResult.data ?? []) as Profile[]);
+    setRooms((roomsResult.data ?? []) as Room[]);
+    setParticipants((participantsResult.data ?? []) as RoomParticipant[]);
+    setRoomMessages((roomMessagesResult.data ?? []) as RoomMessage[]);
+    setGifts((giftsResult.data ?? []) as GiftItem[]);
+    setCoinPackages((packagesResult.data ?? []) as CoinPackage[]);
+    setPurchases((purchasesResult.data ?? []) as CoinPurchase[]);
 
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) =>
-        room.id === roomId
-          ? {
-              ...room,
-              messages: [
-                ...room.messages,
-                {
-                  id: uid('rm'),
-                  userId: currentUser.id,
-                  name: currentUser.name,
-                  body: body.trim(),
-                  time: new Date().toISOString(),
-                  kind: 'chat',
-                },
-              ],
-            }
-          : room,
-      ),
-    }));
-  };
-
-  const toggleHand = (roomId: string) => {
-    if (!currentUser) {
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
-
-        const raised = room.raisedHands.includes(currentUser.id);
-        return {
-          ...room,
-          raisedHands: raised
-            ? room.raisedHands.filter((userId) => userId !== currentUser.id)
-            : [...room.raisedHands, currentUser.id],
-        };
-      }),
-    }));
-  };
-
-  const sendGift = (roomId: string, giftId: string) => {
-    if (!currentUser) {
-      return;
-    }
-
-    const gift = state.gifts.find((item) => item.id === giftId);
-    const room = state.rooms.find((item) => item.id === roomId);
-    if (!gift || !room) {
-      return;
-    }
-
-    if (currentUser.coins < gift.price) {
-      pushNotification({
-        type: 'wallet',
-        title: 'More coins needed',
-        body: `${gift.name} costs ${gift.price} coins.`,
-      });
-      setView('wallet');
-      return;
-    }
-
-    const transaction: Transaction = {
-      id: uid('tx'),
-      type: 'gift',
-      amount: -gift.price,
-      method: 'Room Gift',
-      status: 'completed',
-      detail: `${gift.name} sent in ${room.title}`,
-      time: new Date().toISOString(),
-    };
-
-    setState((previous) => ({
-      ...previous,
-      users: previous.users.map((user) => {
-        if (user.id === currentUser.id) {
-          return { ...user, coins: user.coins - gift.price, activity: Math.min(100, user.activity + 3) };
-        }
-
-        if (user.id === room.hostId) {
-          return {
-            ...user,
-            earnings: user.earnings + gift.rewardPoints,
-            popularity: Math.min(100, user.popularity + 2),
-          };
-        }
-
-        return user;
-      }),
-      rooms: previous.rooms.map((item) =>
-        item.id === roomId
-          ? {
-              ...item,
-              giftsReceived: item.giftsReceived + gift.price,
-              messages: [
-                ...item.messages,
-                {
-                  id: uid('rm'),
-                  userId: currentUser.id,
-                  name: currentUser.name,
-                  body: `${currentUser.name} sent ${gift.name}.`,
-                  time: new Date().toISOString(),
-                  kind: 'gift',
-                },
-              ],
-            }
-          : item,
-      ),
-      transactions: [transaction, ...previous.transactions],
-      notifications: [
-        {
-          id: uid('nt'),
-          type: 'gift',
-          title: 'Gift sent',
-          body: `${gift.name} boosted ${room.hostName}'s room.`,
-          time: new Date().toISOString(),
-          read: false,
-        },
-        ...previous.notifications,
-      ],
-    }));
-  };
-
-  const buyCoins = (pack: (typeof coinPackages)[number]) => {
-    if (!currentUser) {
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      users: previous.users.map((user) =>
-        user.id === currentUser.id ? { ...user, coins: user.coins + pack.coins } : user,
-      ),
-      transactions: [
-        {
-          id: uid('tx'),
-          type: 'purchase',
-          amount: pack.coins,
-          method: pack.method,
-          status: 'completed',
-          detail: `${pack.label} top-up`,
-          time: new Date().toISOString(),
-        },
-        ...previous.transactions,
-      ],
-      notifications: [
-        {
-          id: uid('nt'),
-          type: 'wallet',
-          title: 'Coins added',
-          body: `${formatNumber(pack.coins)} coins were added through ${pack.method}.`,
-          time: new Date().toISOString(),
-          read: false,
-        },
-        ...previous.notifications,
-      ],
-    }));
-  };
-
-  const activateVip = (plan: VipPlan) => {
-    if (!currentUser) {
-      return;
-    }
-
-    if (currentUser.coins < plan.price) {
-      pushNotification({
-        type: 'wallet',
-        title: 'VIP upgrade paused',
-        body: `${plan.id} needs ${formatNumber(plan.price)} coins.`,
-      });
-      setView('wallet');
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      users: previous.users.map((user) =>
-        user.id === currentUser.id
-          ? {
-              ...user,
-              vipTier: plan.id,
-              coins: user.coins - plan.price,
-              badges: Array.from(new Set([...user.badges, `${plan.id} VIP`])),
-              popularity: Math.min(100, user.popularity + 5),
-            }
-          : user,
-      ),
-      transactions: [
-        {
-          id: uid('tx'),
-          type: 'vip',
-          amount: -plan.price,
-          method: 'VIP Upgrade',
-          status: 'completed',
-          detail: `${plan.id} membership activated`,
-          time: new Date().toISOString(),
-        },
-        ...previous.transactions,
-      ],
-      notifications: [
-        {
-          id: uid('nt'),
-          type: 'system',
-          title: 'VIP active',
-          body: `${plan.id} benefits are now attached to your profile.`,
-          time: new Date().toISOString(),
-          read: false,
-        },
-        ...previous.notifications,
-      ],
-    }));
-  };
-
-  const sendDirectMessage = (threadId: string, body: string) => {
-    if (!currentUser || !body.trim()) {
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      threads: previous.threads.map((thread) =>
-        thread.id === threadId
-          ? {
-              ...thread,
-              unread: 0,
-              lastMessage: body.trim(),
-              messages: [
-                ...thread.messages,
-                { id: uid('dm'), from: currentUser.id, body: body.trim(), time: new Date().toISOString() },
-              ],
-            }
-          : thread,
-      ),
-    }));
-  };
-
-  const messageUser = (user: User) => {
-    if (!currentUser || user.id === currentUser.id) {
-      return;
-    }
-
-    setState((previous) => {
-      const existingThread = previous.threads.find((thread) => thread.userId === user.id);
-      if (existingThread) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        threads: [
-          {
-            id: uid('thread'),
-            userId: user.id,
-            userName: user.name,
-            avatar: user.avatar,
-            lastMessage: 'Conversation started.',
-            unread: 0,
-            messages: [
-              {
-                id: uid('dm'),
-                from: currentUser.id,
-                body: 'Conversation started.',
-                time: new Date().toISOString(),
-              },
-            ],
-          },
-          ...previous.threads,
-        ],
-      };
-    });
-    setView('messages');
-  };
-
-  const adminToggleUserBlock = (userId: string) => {
-    setState((previous) => ({
-      ...previous,
-      users: previous.users.map((user) => (user.id === userId ? { ...user, blocked: !user.blocked } : user)),
-    }));
-  };
-
-  const adminToggleRoomLock = (roomId: string) => {
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) => (room.id === roomId ? { ...room, locked: !room.locked } : room)),
-    }));
-  };
-
-  const adminEndRoom = (roomId: string) => {
-    setState((previous) => ({
-      ...previous,
-      rooms: previous.rooms.map((room) => (room.id === roomId ? { ...room, live: false, locked: true } : room)),
-    }));
-  };
-
-  const adminSaveGift = (form: FormData) => {
-    const name = String(form.get('giftName') ?? '').trim();
-    const price = Number(form.get('giftPrice') ?? 0);
-    if (!name || price < 1) {
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      gifts: [
-        {
-          id: uid('gift'),
-          name,
-          label: name
-            .split(' ')
-            .map((part) => part[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase(),
-          price,
-          rewardPoints: Math.max(1, Math.round(price / 4)),
-          accent: '#3bebc2',
-        },
-        ...previous.gifts,
-      ],
-    }));
-  };
-
-  const adminSendAnnouncement = (form: FormData) => {
-    const title = String(form.get('title') ?? '').trim();
-    const body = String(form.get('body') ?? '').trim();
-    if (!title || !body) {
-      return;
-    }
-
-    const announcement: NotificationItem = {
-      id: uid('an'),
-      type: 'system',
-      title,
-      body,
-      time: new Date().toISOString(),
-      read: false,
-    };
-
-    setState((previous) => ({
-      ...previous,
-      announcements: [announcement, ...previous.announcements],
-      notifications: [announcement, ...previous.notifications],
-    }));
-  };
-
-  const updateGameStats = (patch: Partial<AppState['gameStats']>, coinBonus = 0) => {
-    if (!currentUser) {
-      return;
-    }
-
-    setState((previous) => ({
-      ...previous,
-      gameStats: { ...previous.gameStats, ...patch },
-      users: previous.users.map((user) =>
-        user.id === currentUser.id
-          ? {
-              ...user,
-              coins: user.coins + coinBonus,
-              activity: Math.min(100, user.activity + 1),
-            }
-          : user,
-      ),
-      transactions:
-        coinBonus > 0
-          ? [
-              {
-                id: uid('tx'),
-                type: 'bonus',
-                amount: coinBonus,
-                method: 'Admin',
-                status: 'completed',
-                detail: 'Mini game reward',
-                time: new Date().toISOString(),
-              },
-              ...previous.transactions,
-            ]
-          : previous.transactions,
-    }));
-  };
-
-  if (showSplash) {
-    return <SplashScreen />;
+    await loadConversations(userId);
+    setLoading(false);
   }
 
-  if (!currentUser) {
-    return (
-      <>
-        <AuthScreen onAuth={handleAuth} />
-        {showSimulationNotice && <SimulationNotice onClose={closeSimulationNotice} />}
-      </>
-    );
+  async function loadConversations(userId: string) {
+    if (!supabase) {
+      return;
+    }
+
+    const mine = await supabase.from('conversation_members').select('conversation_id').eq('user_id', userId);
+    const ids = [...new Set((mine.data ?? []).map((row) => row.conversation_id))];
+
+    if (!ids.length) {
+      setConversations([]);
+      setDirectMessages([]);
+      return;
+    }
+
+    const [memberResult, messageResult] = await Promise.all([
+      supabase.from('conversation_members').select('conversation_id, user_id, profiles(*)').in('conversation_id', ids),
+      supabase.from('messages').select('*').in('conversation_id', ids).order('created_at', { ascending: true }),
+    ]);
+
+    const allMessages = (messageResult.data ?? []) as DirectMessage[];
+    const summaries = ids
+      .map((id) => {
+        const members = (memberResult.data ?? []).filter((member) => member.conversation_id === id);
+        const otherMember = members.find((member) => member.user_id !== userId);
+        const last = allMessages.filter((message) => message.conversation_id === id).at(-1);
+        const otherProfile = Array.isArray(otherMember?.profiles) ? otherMember?.profiles[0] : otherMember?.profiles;
+        return otherProfile
+          ? {
+              id,
+              other: otherProfile as unknown as Profile,
+              lastMessage: last?.body ?? 'Conversation started',
+            }
+          : null;
+      })
+      .filter(Boolean) as ConversationSummary[];
+
+    setConversations(summaries);
+    setDirectMessages(allMessages);
+    if (!activeConversationId && summaries[0]) {
+      setActiveConversationId(summaries[0].id);
+    }
+  }
+
+  async function signOut() {
+    await supabase?.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }
+
+  async function createRoom(form: FormData) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert({
+        title: String(form.get('title') ?? '').trim(),
+        topic: String(form.get('topic') ?? 'General').trim(),
+        description: String(form.get('description') ?? '').trim(),
+        capacity: Number(form.get('capacity') ?? 8),
+        host_id: profile.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setActiveRoomId(data.id);
+    setNotice('Room is live.');
+  }
+
+  async function joinRoom(room: Room) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    if (room.is_locked || !room.is_live) {
+      setNotice('This room is not accepting new participants.');
+      return;
+    }
+
+    const count = participants.filter((item) => item.room_id === room.id).length;
+    if (count >= room.capacity) {
+      setNotice('The room is full.');
+      return;
+    }
+
+    const { error } = await supabase.from('room_participants').upsert({
+      room_id: room.id,
+      user_id: profile.id,
+      role: room.host_id === profile.id ? 'host' : 'listener',
+      muted: room.host_id !== profile.id,
+      last_seen_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setActiveRoomId(room.id);
+  }
+
+  async function leaveRoom(room: Room) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    await supabase.from('room_participants').delete().eq('room_id', room.id).eq('user_id', profile.id);
+    if (room.host_id === profile.id) {
+      await supabase.from('rooms').update({ is_live: false, ended_at: new Date().toISOString() }).eq('id', room.id);
+    }
+  }
+
+  async function sendRoomMessage(roomId: string, body: string) {
+    if (!supabase || !profile || !body.trim()) {
+      return;
+    }
+
+    const { error } = await supabase.from('room_messages').insert({
+      room_id: roomId,
+      sender_id: profile.id,
+      body: body.trim(),
+    });
+
+    if (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function sendGift(roomId: string, giftId: string) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    const { error } = await supabase.from('gift_transactions').insert({
+      room_id: roomId,
+      gift_id: giftId,
+      sender_id: profile.id,
+      receiver_id: profile.id,
+      coins: 1,
+    });
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    setNotice('Gift sent.');
+  }
+
+  async function startConversation(other: Profile) {
+    if (!supabase || !profile || other.id === profile.id) {
+      return;
+    }
+
+    const mine = await supabase.from('conversation_members').select('conversation_id').eq('user_id', profile.id);
+    const ids = [...new Set((mine.data ?? []).map((row) => row.conversation_id))];
+
+    if (ids.length) {
+      const members = await supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids);
+      const existing = ids.find((id) => {
+        const rows = (members.data ?? []).filter((member) => member.conversation_id === id);
+        return rows.length === 2 && rows.some((member) => member.user_id === other.id);
+      });
+      if (existing) {
+        setActiveConversationId(existing);
+        setView('messages');
+        return;
+      }
+    }
+
+    const conversation = await supabase.from('conversations').insert({ created_by: profile.id }).select().single();
+    if (conversation.error) {
+      setNotice(conversation.error.message);
+      return;
+    }
+
+    const conversationId = conversation.data.id;
+    const { error } = await supabase.from('conversation_members').insert([
+      { conversation_id: conversationId, user_id: profile.id },
+      { conversation_id: conversationId, user_id: other.id },
+    ]);
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    await loadConversations(profile.id);
+    setActiveConversationId(conversationId);
+    setView('messages');
+  }
+
+  async function sendDirectMessage(conversationId: string, body: string) {
+    if (!supabase || !profile || !body.trim()) {
+      return;
+    }
+
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_id: profile.id,
+      body: body.trim(),
+    });
+
+    if (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function updateProfile(form: FormData) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    const patch = {
+      full_name: String(form.get('full_name') ?? '').trim(),
+      handle: String(form.get('handle') ?? '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, ''),
+      bio: String(form.get('bio') ?? '').trim(),
+      interests: String(form.get('interests') ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 8),
+    };
+
+    const avatar = form.get('avatar');
+    const cover = form.get('cover');
+    const uploads: Partial<Profile> = {};
+
+    if (avatar instanceof File && avatar.size > 0) {
+      uploads.avatar_url = await uploadProfileFile('avatars', avatar, profile.id);
+    }
+    if (cover instanceof File && cover.size > 0) {
+      uploads.cover_url = await uploadProfileFile('covers', cover, profile.id);
+    }
+
+    const { error } = await supabase.from('profiles').update({ ...patch, ...uploads }).eq('id', profile.id);
+    setNotice(error ? error.message : 'Profile updated.');
+  }
+
+  async function uploadProfileFile(bucket: 'avatars' | 'covers', file: File, userId: string) {
+    if (!supabase) {
+      return null;
+    }
+    const extension = file.name.split('.').pop() || 'png';
+    const path = `${userId}/${Date.now()}.${extension}`;
+    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+    if (error) {
+      setNotice(error.message);
+      return null;
+    }
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function requestCoinPurchase(pack: CoinPackage, reference: string) {
+    if (!supabase || !profile) {
+      return;
+    }
+
+    const { error } = await supabase.from('coin_purchases').insert({
+      user_id: profile.id,
+      package_id: pack.id,
+      provider: pack.provider,
+      amount_pkr: pack.amount_pkr,
+      coins: pack.coins,
+      provider_reference: reference.trim() || null,
+    });
+
+    setNotice(error ? error.message : 'Purchase request submitted. Admin approval credits the coins.');
+  }
+
+  async function completePurchase(purchase: CoinPurchase) {
+    if (!supabase) {
+      return;
+    }
+    const { error } = await supabase.from('coin_purchases').update({ status: 'completed' }).eq('id', purchase.id);
+    setNotice(error ? error.message : 'Purchase completed and coins credited.');
+  }
+
+  async function toggleBlockUser(user: Profile) {
+    if (!supabase) {
+      return;
+    }
+    const { error } = await supabase.from('profiles').update({ is_blocked: !user.is_blocked }).eq('id', user.id);
+    setNotice(error ? error.message : 'User status updated.');
+  }
+
+  async function endRoom(room: Room) {
+    if (!supabase) {
+      return;
+    }
+    await supabase.from('rooms').update({ is_live: false, is_locked: true, ended_at: new Date().toISOString() }).eq('id', room.id);
+  }
+
+  if (!isSupabaseConfigured) {
+    return <SetupMissing />;
+  }
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!session || !profile) {
+    return <AuthScreen />;
   }
 
   return (
-    <div className="app-shell">
-      <Sidebar active={view} onNavigate={setView} />
-      <main className="main-surface">
-        <Topbar
-          currentUser={currentUser}
-          unreadCount={unreadCount}
-          notificationsOpen={notificationsOpen}
-          notifications={state.notifications}
-          onToggleNotifications={() => setNotificationsOpen((open) => !open)}
-          onReadAll={markNotificationsRead}
-          onSignOut={signOut}
-          onResetDemo={resetDemo}
-        />
+    <div className="product-shell">
+      <aside className="product-sidebar">
+        <div className="brand-block">
+          <img src="assets/brand-mark.png" alt="" />
+          <div>
+            <strong>Voxora</strong>
+            <span>Live social audio</span>
+          </div>
+        </div>
+        <nav>
+          {navItems
+            .filter((item) => item.id !== 'admin' || profile.is_admin)
+            .map((item) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.id} className={cx(view === item.id && 'active')} onClick={() => setView(item.id)} type="button">
+                  <Icon size={18} />
+                  {item.label}
+                </button>
+              );
+            })}
+        </nav>
+        <button className="sign-out" type="button" onClick={signOut}>
+          <LogOut size={18} />
+          Sign out
+        </button>
+      </aside>
 
-        {view === 'home' && (
-          <HomeScreen
-            state={state}
-            currentUser={currentUser}
-            onNavigate={setView}
-            onJoinRoom={joinRoom}
-            onFollow={toggleFollow}
-            onMessageUser={messageUser}
-          />
+      <main className="product-main">
+        <header className="product-topbar">
+          <div>
+            <span className="eyebrow">Signed in as @{profile.handle}</span>
+            <h1>{viewTitle(view)}</h1>
+          </div>
+          <div className="account-pill">
+            <Coins size={18} />
+            {formatNumber(profile.coins)}
+          </div>
+        </header>
+
+        {notice && (
+          <button className="notice" type="button" onClick={() => setNotice('')}>
+            <Bell size={18} />
+            {notice}
+          </button>
         )}
+
         {view === 'rooms' && (
-          <RoomsScreen
-            state={state}
-            currentUser={currentUser}
+          <RoomsView
+            profile={profile}
+            profiles={profiles}
+            rooms={rooms}
+            participants={participants}
+            messages={messagesForRoom}
             activeRoom={activeRoom}
+            gifts={gifts}
+            myParticipant={myParticipant}
             onCreateRoom={createRoom}
             onJoinRoom={joinRoom}
-            onSelectRoom={setActiveRoomId}
             onLeaveRoom={leaveRoom}
+            onSelectRoom={setActiveRoomId}
             onSendRoomMessage={sendRoomMessage}
-            onToggleHand={toggleHand}
             onSendGift={sendGift}
           />
         )}
         {view === 'messages' && (
-          <MessagesScreen
-            threads={state.threads}
-            currentUser={currentUser}
+          <MessagesView
+            profile={profile}
+            conversations={conversations}
+            activeConversation={activeConversation}
+            directMessages={directMessages}
+            onSelectConversation={setActiveConversationId}
             onSendMessage={sendDirectMessage}
+            onStartConversation={startConversation}
+            people={profiles}
           />
         )}
-        {view === 'profile' && (
-          <ProfileScreen
-            state={state}
-            currentUser={currentUser}
-            onUpdateUser={updateCurrentUser}
-            onFollow={toggleFollow}
-            onMessageUser={messageUser}
-          />
-        )}
+        {view === 'people' && <PeopleView profile={profile} people={profiles} onMessage={startConversation} />}
         {view === 'wallet' && (
-          <WalletScreen
-            currentUser={currentUser}
-            gifts={state.gifts}
-            transactions={state.transactions}
-            onBuyCoins={buyCoins}
+          <WalletView
+            profile={profile}
+            packages={coinPackages}
+            purchases={purchases.filter((purchase) => purchase.user_id === profile.id)}
+            onRequestPurchase={requestCoinPurchase}
           />
         )}
-        {view === 'vip' && (
-          <VipScreen currentUser={currentUser} plans={state.vipPlans} onActivateVip={activateVip} />
-        )}
-        {view === 'games' && (
-          <GamesScreen currentUser={currentUser} stats={state.gameStats} onUpdateStats={updateGameStats} />
-        )}
-        {view === 'admin' && (
-          <AdminPanel
-            state={state}
-            onToggleUserBlock={adminToggleUserBlock}
-            onToggleRoomLock={adminToggleRoomLock}
-            onEndRoom={adminEndRoom}
-            onSaveGift={adminSaveGift}
-            onSendAnnouncement={adminSendAnnouncement}
+        {view === 'profile' && <ProfileView profile={profile} onUpdateProfile={updateProfile} />}
+        {view === 'admin' && profile.is_admin && (
+          <AdminView
+            people={profiles}
+            rooms={rooms}
+            purchases={purchases}
+            onCompletePurchase={completePurchase}
+            onToggleBlockUser={toggleBlockUser}
+            onEndRoom={endRoom}
           />
         )}
       </main>
-      <MobileNav active={view} onNavigate={setView} />
-      {showSimulationNotice && <SimulationNotice onClose={closeSimulationNotice} />}
     </div>
   );
 }
 
-function SimulationNotice({ onClose }: { onClose: () => void }) {
+function viewTitle(view: View) {
+  return {
+    rooms: 'Live rooms',
+    messages: 'Messages',
+    people: 'People',
+    wallet: 'Wallet',
+    profile: 'Profile settings',
+    admin: 'Admin operations',
+  }[view];
+}
+
+function LoadingScreen() {
   return (
-    <div className="simulation-backdrop" role="dialog" aria-modal="true" aria-labelledby="simulation-title">
-      <section className="simulation-card">
-        <span className="simulation-mark">
-          <Sparkles size={24} />
-        </span>
-        <p className="eyebrow">Stage Mode</p>
-        <h2 id="simulation-title">This is a simulation, not a real live app.</h2>
-        <p>
-          Voxora on GitHub Pages is an interactive prototype. Voice rooms, gifts, coins, VIP,
-          messages, payments, and admin actions are demo flows stored in this browser only.
-        </p>
-        <div className="simulation-strip">
-          <span>No real calls</span>
-          <span>No real payments</span>
-          <span>No public accounts</span>
-        </div>
-        <button className="primary-action" type="button" onClick={onClose}>
-          <Radio size={18} />
-          Enter the Simulation
-        </button>
-      </section>
-    </div>
+    <main className="center-screen">
+      <img src="assets/brand-mark.png" alt="" />
+      <h1>Loading Voxora</h1>
+    </main>
   );
 }
 
-function SplashScreen() {
+function SetupMissing() {
   return (
-    <section className="splash-screen">
-      <div className="splash-card">
-        <img src="assets/brand-mark.png" alt="Voxora mark" />
-        <div>
-          <p className="eyebrow">Social Voice Network</p>
-          <h1>Voxora</h1>
-          <span className="loading-bar" aria-hidden="true" />
-        </div>
-      </div>
-    </section>
+    <main className="center-screen setup-screen">
+      <img src="assets/brand-mark.png" alt="" />
+      <h1>Backend configuration required</h1>
+      <p>
+        Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as GitHub repository variables or local environment
+        variables. Do not commit service-role keys.
+      </p>
+    </main>
   );
 }
 
-function AuthScreen({ onAuth }: { onAuth: (mode: 'login' | 'register', form: FormData) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+function AuthScreen() {
+  const [mode, setMode] = useState<'login' | 'signup'>('signup');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onAuth(mode, new FormData(event.currentTarget));
-  };
+    if (!supabase) {
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email') ?? '').trim();
+    const password = String(form.get('password') ?? '');
+
+    const response =
+      mode === 'login'
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: String(form.get('full_name') ?? '').trim(),
+                handle: String(form.get('handle') ?? '').trim().toLowerCase(),
+                bio: String(form.get('bio') ?? '').trim(),
+                interests: String(form.get('interests') ?? '').trim(),
+              },
+              emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
+            },
+          });
+
+    if (response.error) {
+      setError(response.error.message);
+    }
+    setBusy(false);
+  }
 
   return (
-    <main className="auth-layout">
-      <section className="auth-visual">
-        <img src="assets/room-aurora.png" alt="Abstract live voice room" />
-        <div className="auth-brand">
-          <img src="assets/brand-mark.png" alt="" />
-          <div>
-            <p className="eyebrow">Meet Voxora</p>
-            <h1>Voice rooms with gifts, games, VIP, and real community energy.</h1>
-          </div>
-        </div>
+    <main className="auth-page">
+      <section className="auth-copy">
+        <img src="assets/brand-mark.png" alt="" />
+        <span className="eyebrow">Production build</span>
+        <h1>Real accounts, realtime chat, and live voice rooms for social audio communities.</h1>
+        <p>
+          Voxora now runs on Supabase Auth, Postgres, Realtime, Storage, and browser WebRTC. Your account data is stored
+          in the backend, not local demo state.
+        </p>
       </section>
-      <section className="auth-panel">
+      <section className="auth-card">
         <div className="segmented">
-          <button className={cx(mode === 'login' && 'active')} onClick={() => setMode('login')} type="button">
-            Login
+          <button className={cx(mode === 'signup' && 'active')} type="button" onClick={() => setMode('signup')}>
+            Sign up
           </button>
-          <button className={cx(mode === 'register' && 'active')} onClick={() => setMode('register')} type="button">
-            Register
+          <button className={cx(mode === 'login' && 'active')} type="button" onClick={() => setMode('login')}>
+            Log in
           </button>
         </div>
-        <form onSubmit={submit} className="stacked-form">
-          {mode === 'register' && (
-            <label>
-              Display name
-              <input name="name" placeholder="Zain Tahir" autoComplete="name" />
-            </label>
+        <form className="form-grid" onSubmit={submit}>
+          {mode === 'signup' && (
+            <>
+              <label>
+                Display name
+                <input name="full_name" required minLength={2} placeholder="Zain Tahir" />
+              </label>
+              <label>
+                Handle
+                <input name="handle" required minLength={3} placeholder="zain" />
+              </label>
+            </>
           )}
           <label>
-            Handle
-            <input name="handle" placeholder="zain" autoComplete="username" />
+            Email
+            <input name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
           </label>
-          {mode === 'register' && (
-            <label>
-              Bio
-              <textarea name="bio" placeholder="What kind of rooms do you host?" rows={4} />
-            </label>
+          <label>
+            Password
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              placeholder="At least 8 characters"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            />
+          </label>
+          {mode === 'signup' && (
+            <>
+              <label>
+                Bio
+                <textarea name="bio" rows={3} placeholder="Tell people what you host or enjoy." />
+              </label>
+              <label>
+                Interests
+                <input name="interests" placeholder="Music, study, gaming" />
+              </label>
+            </>
           )}
-          <button className="primary-action" type="submit">
-            <Radio size={18} />
-            {mode === 'login' ? 'Enter Voxora' : 'Create Profile'}
+          {error && <p className="form-error">{error}</p>}
+          <button className="primary-action" type="submit" disabled={busy}>
+            <Lock size={18} />
+            {busy ? 'Please wait' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
         </form>
-        <div className="auth-note">
-          <BadgeCheck size={18} />
-          <span>Use handle "zain" for the complete seeded demo account.</span>
-        </div>
       </section>
     </main>
   );
 }
 
-function Sidebar({ active, onNavigate }: { active: ViewId; onNavigate: (view: ViewId) => void }) {
-  return (
-    <aside className="sidebar">
-      <div className="brand-lockup">
-        <img src="assets/brand-mark.png" alt="" />
-        <div>
-          <strong>Voxora</strong>
-          <span>Social Voice</span>
-        </div>
-      </div>
-      <nav>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              className={cx('nav-item', active === item.id && 'active')}
-              onClick={() => onNavigate(item.id)}
-              type="button"
-            >
-              <Icon size={20} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-      <div className="sidebar-status">
-        <span className="pulse-dot" />
-        <div>
-          <strong>Demo live</strong>
-          <span>Free local mode</span>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function MobileNav({ active, onNavigate }: { active: ViewId; onNavigate: (view: ViewId) => void }) {
-  return (
-    <nav className="mobile-nav">
-      {navItems.slice(0, 5).map((item) => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            aria-label={item.label}
-            className={cx(active === item.id && 'active')}
-            onClick={() => onNavigate(item.id)}
-          >
-            <Icon size={20} />
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-function Topbar({
-  currentUser,
-  unreadCount,
-  notificationsOpen,
-  notifications,
-  onToggleNotifications,
-  onReadAll,
-  onSignOut,
-  onResetDemo,
-}: {
-  currentUser: User;
-  unreadCount: number;
-  notificationsOpen: boolean;
-  notifications: NotificationItem[];
-  onToggleNotifications: () => void;
-  onReadAll: () => void;
-  onSignOut: () => void;
-  onResetDemo: () => void;
-}) {
-  return (
-    <header className="topbar">
-      <div>
-        <p className="eyebrow">Welcome back</p>
-        <h2>{currentUser.name}</h2>
-      </div>
-      <div className="topbar-actions">
-        <button className="icon-button" onClick={onResetDemo} type="button" title="Reset demo">
-          <RefreshCw size={18} />
-        </button>
-        <div className="notification-wrap">
-          <button className="icon-button" onClick={onToggleNotifications} type="button" title="Notifications">
-            <Bell size={18} />
-            {unreadCount > 0 && <span className="badge-count">{unreadCount}</span>}
-          </button>
-          {notificationsOpen && (
-            <div className="popover">
-              <div className="popover-head">
-                <strong>Notifications</strong>
-                <button type="button" onClick={onReadAll}>
-                  Mark read
-                </button>
-              </div>
-              <div className="notification-list">
-                {notifications.slice(0, 8).map((notification) => (
-                  <article key={notification.id} className={cx('notification-item', !notification.read && 'unread')}>
-                    <span>{notification.title}</span>
-                    <p>{notification.body}</p>
-                    <small>{formatTime(notification.time)}</small>
-                  </article>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="profile-chip">
-          <img src={currentUser.avatar} alt="" />
-          <span>{currentUser.vipTier}</span>
-        </div>
-        <button className="icon-button" onClick={onSignOut} type="button" title="Sign out">
-          <LogOut size={18} />
-        </button>
-      </div>
-    </header>
-  );
-}
-
-function HomeScreen({
-  state,
-  currentUser,
-  onNavigate,
-  onJoinRoom,
-  onFollow,
-  onMessageUser,
-}: {
-  state: AppState;
-  currentUser: User;
-  onNavigate: (view: ViewId) => void;
-  onJoinRoom: (roomId: string) => void;
-  onFollow: (userId: string) => void;
-  onMessageUser: (user: User) => void;
-}) {
-  const liveRooms = state.rooms.filter((room) => room.live);
-  const topHosts = [...state.users].sort((a, b) => b.earnings - a.earnings).slice(0, 4);
-
-  return (
-    <div className="screen-grid home-grid">
-      <section className="hero-panel">
-        <img src="assets/room-midnight.png" alt="Voxora live room artwork" />
-        <div className="hero-content">
-          <p className="eyebrow">Live now on Voxora</p>
-          <h1>Rooms, rewards, friends, and host tools in one voice-first space.</h1>
-          <div className="hero-actions">
-            <button className="primary-action" type="button" onClick={() => onNavigate('rooms')}>
-              <Mic size={18} />
-              Join a Room
-            </button>
-            <button className="secondary-action" type="button" onClick={() => onNavigate('wallet')}>
-              <Coins size={18} />
-              {formatNumber(currentUser.coins)} Coins
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="metric-row">
-        <Metric icon={Users} label="Users" value={formatNumber(state.users.length)} tone="mint" />
-        <Metric icon={Radio} label="Active rooms" value={formatNumber(liveRooms.length)} tone="cyan" />
-        <Metric icon={Gift} label="Gift volume" value={formatNumber(state.rooms.reduce((sum, room) => sum + room.giftsReceived, 0))} tone="coral" />
-        <Metric icon={Trophy} label="Your level" value={currentUser.level.toString()} tone="gold" />
-      </section>
-
-      <section className="content-section span-2">
-        <SectionTitle icon={Radio} title="Featured Rooms" action="View all" onAction={() => onNavigate('rooms')} />
-        <div className="room-card-grid">
-          {liveRooms.slice(0, 3).map((room) => (
-            <RoomCard key={room.id} room={room} onJoinRoom={onJoinRoom} />
-          ))}
-        </div>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Trophy} title="Leaderboards" />
-        <div className="leader-list">
-          {topHosts.map((host, index) => (
-            <button className="leader-row" type="button" key={host.id} onClick={() => onMessageUser(host)}>
-              <span className="rank">{index + 1}</span>
-              <img src={host.avatar} alt="" />
-              <div>
-                <strong>{host.name}</strong>
-                <small>{formatNumber(host.earnings)} host points</small>
-              </div>
-              <Crown size={18} />
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={UserPlus} title="Suggested Follows" />
-        <div className="creator-stack">
-          {state.users
-            .filter((user) => user.id !== currentUser.id)
-            .slice(0, 4)
-            .map((user) => {
-              const following = currentUser.following.includes(user.id);
-              return (
-                <article className="creator-card" key={user.id}>
-                  <img src={user.avatar} alt="" />
-                  <div>
-                    <strong>{user.name}</strong>
-                    <small>@{user.handle}</small>
-                  </div>
-                  <button className={cx('pill-button', following && 'active')} onClick={() => onFollow(user.id)} type="button">
-                    {following ? <Check size={16} /> : <UserPlus size={16} />}
-                    {following ? 'Following' : 'Follow'}
-                  </button>
-                </article>
-              );
-            })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RoomsScreen({
-  state,
-  currentUser,
+function RoomsView({
+  profile,
+  profiles,
+  rooms,
+  participants,
+  messages,
   activeRoom,
+  gifts,
+  myParticipant,
   onCreateRoom,
   onJoinRoom,
-  onSelectRoom,
   onLeaveRoom,
+  onSelectRoom,
   onSendRoomMessage,
-  onToggleHand,
   onSendGift,
 }: {
-  state: AppState;
-  currentUser: User;
+  profile: Profile;
+  profiles: Profile[];
+  rooms: Room[];
+  participants: RoomParticipant[];
+  messages: RoomMessage[];
   activeRoom: Room | null;
+  gifts: GiftItem[];
+  myParticipant: RoomParticipant | null;
   onCreateRoom: (form: FormData) => void;
-  onJoinRoom: (roomId: string) => void;
+  onJoinRoom: (room: Room) => void;
+  onLeaveRoom: (room: Room) => void;
   onSelectRoom: (roomId: string) => void;
-  onLeaveRoom: (roomId: string) => void;
   onSendRoomMessage: (roomId: string, body: string) => void;
-  onToggleHand: (roomId: string) => void;
   onSendGift: (roomId: string, giftId: string) => void;
 }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [topic, setTopic] = useState('All');
-  const filteredRooms = state.rooms.filter((room) => {
-    const matchesTopic = topic === 'All' || room.topic === topic || room.tags.includes(topic);
-    const matchesQuery = `${room.title} ${room.hostName} ${room.tags.join(' ')}`
-      .toLowerCase()
-      .includes(query.toLowerCase());
-    return matchesTopic && matchesQuery;
-  });
+  const [roomChat, setRoomChat] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const liveRooms = rooms.filter((room) => room.is_live);
+  const activeParticipants = activeRoom ? participants.filter((item) => item.room_id === activeRoom.id) : [];
 
-  const submitRoom = (event: FormEvent<HTMLFormElement>) => {
+  function submitRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onCreateRoom(new FormData(event.currentTarget));
-    setCreateOpen(false);
     event.currentTarget.reset();
-  };
+  }
 
-  return (
-    <div className="rooms-layout">
-      <section className="content-section room-directory">
-        <SectionTitle icon={Radio} title="Live Rooms" />
-        <div className="toolbar">
-          <label className="search-field">
-            <Search size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rooms" />
-          </label>
-          <button className="primary-action compact" type="button" onClick={() => setCreateOpen(true)}>
-            <Plus size={18} />
-            Go Live
-          </button>
-        </div>
-        <div className="topic-tabs">
-          {topics.map((item) => (
-            <button key={item} className={cx(topic === item && 'active')} type="button" onClick={() => setTopic(item)}>
-              {item}
-            </button>
-          ))}
-        </div>
-        <div className="room-list">
-          {filteredRooms.map((room) => (
-            <button
-              key={room.id}
-              type="button"
-              onClick={() => {
-                onSelectRoom(room.id);
-                onJoinRoom(room.id);
-              }}
-              className={cx('room-list-card', activeRoom?.id === room.id && 'active')}
-            >
-              <img src={room.cover} alt="" />
-              <div>
-                <strong>{room.title}</strong>
-                <span>{room.hostName}</span>
-                <small>{room.participants.length}/{room.capacity} voices</small>
-              </div>
-              {room.locked ? <Lock size={18} /> : <Radio size={18} />}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {activeRoom ? (
-        <RoomExperience
-          room={activeRoom}
-          currentUser={currentUser}
-          gifts={state.gifts}
-          onLeaveRoom={onLeaveRoom}
-          onSendRoomMessage={onSendRoomMessage}
-          onToggleHand={onToggleHand}
-          onSendGift={onSendGift}
-        />
-      ) : (
-        <section className="content-section empty-state">
-          <Radio size={36} />
-          <h3>No room selected</h3>
-          <p>Select a live room or create one.</p>
-        </section>
-      )}
-
-      {createOpen && (
-        <div className="modal-backdrop" role="presentation">
-          <form className="modal-card stacked-form" onSubmit={submitRoom}>
-            <div className="modal-head">
-              <h3>Create voice room</h3>
-              <button type="button" className="icon-button" onClick={() => setCreateOpen(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <label>
-              Room title
-              <input name="title" placeholder="After Class Hangout" required />
-            </label>
-            <div className="two-col">
-              <label>
-                Topic
-                <select name="topic" defaultValue="Music">
-                  {topics.filter((item) => item !== 'All').map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Capacity
-                <input name="capacity" type="number" min={4} max={80} defaultValue={18} />
-              </label>
-            </div>
-            <label>
-              Mood
-              <input name="mood" placeholder="Chill" />
-            </label>
-            <label>
-              Language
-              <input name="language" placeholder="Urdu / English" />
-            </label>
-            <label>
-              Tags
-              <input name="tags" placeholder="Music, Friends, Stories" />
-            </label>
-            <label>
-              Description
-              <textarea name="description" rows={3} placeholder="Room tone and topic" />
-            </label>
-            <button className="primary-action" type="submit">
-              <Radio size={18} />
-              Start Room
-            </button>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RoomExperience({
-  room,
-  currentUser,
-  gifts,
-  onLeaveRoom,
-  onSendRoomMessage,
-  onToggleHand,
-  onSendGift,
-}: {
-  room: Room;
-  currentUser: User;
-  gifts: GiftType[];
-  onLeaveRoom: (roomId: string) => void;
-  onSendRoomMessage: (roomId: string, body: string) => void;
-  onToggleHand: (roomId: string) => void;
-  onSendGift: (roomId: string, giftId: string) => void;
-}) {
-  const [micOn, setMicOn] = useState(false);
-  const [message, setMessage] = useState('');
-  const { level, status } = useVoiceMeter(micOn);
-  const participant = room.participants.find((item) => item.userId === currentUser.id);
-  const insideRoom = Boolean(participant);
-  const handRaised = room.raisedHands.includes(currentUser.id);
-
-  const submitMessage = (event: FormEvent<HTMLFormElement>) => {
+  function submitRoomMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSendRoomMessage(room.id, message);
-    setMessage('');
-  };
-
-  return (
-    <section className="content-section room-stage">
-      <div className="room-cover">
-        <img src={room.cover} alt="" />
-        <div>
-          <p className="eyebrow">{room.topic} - {room.language}</p>
-          <h2>{room.title}</h2>
-          <span>{room.description}</span>
-        </div>
-        <button className="danger-action" type="button" onClick={() => onLeaveRoom(room.id)}>
-          <PhoneOff size={18} />
-          Leave
-        </button>
-      </div>
-
-      <div className="stage-meta">
-        <Metric icon={Users} label="Voices" value={`${room.participants.length}/${room.capacity}`} tone="mint" />
-        <Metric icon={Gift} label="Gifts" value={formatNumber(room.giftsReceived)} tone="coral" />
-        <Metric icon={Hand} label="Raised" value={room.raisedHands.length.toString()} tone="gold" />
-      </div>
-
-      <div className="participant-grid">
-        {room.participants.map((person) => (
-          <article className={cx('seat-card', person.speaking && 'speaking')} key={person.userId}>
-            <img src={person.avatar} alt="" />
-            <strong>{person.name}</strong>
-            <span>{person.role}</span>
-            <small>{person.vipTier}</small>
-            {person.muted ? <MicOff size={16} /> : <Mic size={16} />}
-          </article>
-        ))}
-      </div>
-
-      <div className="control-dock">
-        <button className={cx('control-button', micOn && 'active')} type="button" onClick={() => setMicOn((on) => !on)}>
-          {micOn ? <Mic size={20} /> : <MicOff size={20} />}
-          <span>{micOn ? 'Mic On' : 'Mic Off'}</span>
-        </button>
-        <button
-          className={cx('control-button', handRaised && 'active')}
-          type="button"
-          onClick={() => onToggleHand(room.id)}
-          disabled={!insideRoom}
-        >
-          <Hand size={20} />
-          <span>{handRaised ? 'Hand Raised' : 'Raise Hand'}</span>
-        </button>
-        <div className="voice-meter" aria-label={`Microphone level ${level}`}>
-          <span style={{ width: `${micOn ? level : 0}%` }} />
-        </div>
-        <small>{status === 'blocked' ? 'Mic permission blocked' : status === 'unsupported' ? 'Mic unsupported' : 'Live audio meter'}</small>
-      </div>
-
-      <div className="room-bottom">
-        <div className="room-chat">
-          <div className="chat-log">
-            {room.messages.slice(-8).map((item) => (
-              <article key={item.id} className={cx('chat-line', item.kind)}>
-                <strong>{item.name}</strong>
-                <p>{item.body}</p>
-                <small>{formatTime(item.time)}</small>
-              </article>
-            ))}
-          </div>
-          <form className="message-form" onSubmit={submitMessage}>
-            <input
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Send room chat"
-              disabled={!insideRoom}
-            />
-            <button type="submit" disabled={!message.trim() || !insideRoom}>
-              <Send size={18} />
-            </button>
-          </form>
-        </div>
-
-        <div className="gift-shelf">
-          <strong>Virtual gifts</strong>
-          {gifts.slice(0, 5).map((gift) => (
-            <button key={gift.id} type="button" onClick={() => onSendGift(room.id, gift.id)}>
-              <span style={{ background: gift.accent }}>{gift.label}</span>
-              <div>
-                <b>{gift.name}</b>
-                <small>{gift.price} coins</small>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function MessagesScreen({
-  threads,
-  currentUser,
-  onSendMessage,
-}: {
-  threads: MessageThread[];
-  currentUser: User;
-  onSendMessage: (threadId: string, body: string) => void;
-}) {
-  const [activeThreadId, setActiveThreadId] = useState(threads[0]?.id ?? '');
-  const [message, setMessage] = useState('');
-  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? threads[0];
-
-  const submitMessage = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!activeThread) {
-      return;
+    if (activeRoom) {
+      onSendRoomMessage(activeRoom.id, roomChat);
+      setRoomChat('');
     }
-    onSendMessage(activeThread.id, message);
-    setMessage('');
-  };
+  }
 
   return (
-    <div className="messages-layout">
-      <section className="content-section thread-list">
-        <SectionTitle icon={MessageCircle} title="Private Messages" />
-        {threads.map((thread) => (
-          <button
-            type="button"
-            className={cx('thread-card', activeThread?.id === thread.id && 'active')}
-            key={thread.id}
-            onClick={() => setActiveThreadId(thread.id)}
-          >
-            <img src={thread.avatar} alt="" />
-            <div>
-              <strong>{thread.userName}</strong>
-              <span>{thread.lastMessage}</span>
-            </div>
-            {thread.unread > 0 && <small>{thread.unread}</small>}
+    <div className="two-pane">
+      <section className="panel">
+        <SectionTitle icon={Radio} title="Rooms" />
+        <form className="compact-form" onSubmit={submitRoom}>
+          <input name="title" placeholder="Room title" required minLength={3} />
+          <input name="topic" placeholder="Topic" defaultValue="General" />
+          <input name="capacity" type="number" min={2} max={20} defaultValue={8} />
+          <textarea name="description" placeholder="Room description" rows={3} />
+          <button className="primary-action compact" type="submit">
+            <Plus size={18} />
+            Start room
           </button>
-        ))}
+        </form>
+        <div className="room-list-real">
+          {liveRooms.map((room) => {
+            const host = profiles.find((item) => item.id === room.host_id);
+            const count = participants.filter((item) => item.room_id === room.id).length;
+            return (
+              <button
+                key={room.id}
+                className={cx('room-row', activeRoom?.id === room.id && 'active')}
+                type="button"
+                onClick={() => {
+                  onSelectRoom(room.id);
+                  onJoinRoom(room);
+                }}
+              >
+                <div>
+                  <strong>{room.title}</strong>
+                  <span>{host?.full_name ?? 'Host'} · {room.topic}</span>
+                </div>
+                <small>{count}/{room.capacity}</small>
+              </button>
+            );
+          })}
+        </div>
       </section>
-      <section className="content-section conversation-panel">
-        {activeThread ? (
+
+      <section className="panel room-panel">
+        {activeRoom ? (
           <>
-            <div className="conversation-head">
-              <img src={activeThread.avatar} alt="" />
+            <div className="room-header-real">
               <div>
-                <h3>{activeThread.userName}</h3>
-                <span>Direct chat</span>
+                <span className="eyebrow">{activeRoom.topic}</span>
+                <h2>{activeRoom.title}</h2>
+                <p>{activeRoom.description || 'No room description yet.'}</p>
+              </div>
+              <div className="room-actions">
+                <button className="secondary-action compact" type="button" onClick={() => onJoinRoom(activeRoom)}>
+                  <Phone size={18} />
+                  Join
+                </button>
+                <button className="danger-action compact" type="button" onClick={() => onLeaveRoom(activeRoom)}>
+                  <PhoneOff size={18} />
+                  Leave
+                </button>
               </div>
             </div>
-            <div className="conversation-log">
-              {activeThread.messages.map((item) => (
-                <article className={cx('bubble', item.from === currentUser.id && 'mine')} key={item.id}>
-                  <p>{item.body}</p>
-                  <small>{formatTime(item.time)}</small>
+
+            <VoiceRoom room={activeRoom} profile={profile} enabled={voiceEnabled} onToggle={setVoiceEnabled} />
+
+            <div className="participant-strip">
+              {activeParticipants.map((participant) => (
+                <article key={participant.user_id}>
+                  <img src={participant.profiles?.avatar_url || fallbackAvatar} alt="" />
+                  <div>
+                    <strong>{participant.profiles?.full_name ?? 'Member'}</strong>
+                    <span>{participant.role}</span>
+                  </div>
+                  {participant.muted ? <MicOff size={16} /> : <Mic size={16} />}
                 </article>
               ))}
             </div>
-            <form className="message-form" onSubmit={submitMessage}>
+
+            <div className="gift-row">
+              {gifts.map((gift) => (
+                <button key={gift.id} type="button" onClick={() => onSendGift(activeRoom.id, gift.id)}>
+                  <span style={{ background: gift.accent }}>{gift.label}</span>
+                  {gift.name}
+                  <small>{gift.price}</small>
+                </button>
+              ))}
+            </div>
+
+            <div className="chat-area">
+              <div className="message-scroll">
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} mine={message.sender_id === profile.id}>
+                    <strong>{message.profiles?.full_name ?? 'Member'}</strong>
+                    <p>{message.body}</p>
+                    <small>{formatTime(message.created_at)}</small>
+                  </MessageBubble>
+                ))}
+              </div>
+              <form className="send-form" onSubmit={submitRoomMessage}>
+                <input
+                  value={roomChat}
+                  onChange={(event) => setRoomChat(event.target.value)}
+                  placeholder={myParticipant ? 'Write to the room' : 'Join the room to chat'}
+                  disabled={!myParticipant}
+                />
+                <button type="submit" disabled={!roomChat.trim() || !myParticipant}>
+                  <Send size={18} />
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <EmptyState icon={Radio} title="No active room" body="Create a room or join one from the list." />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function VoiceRoom({
+  room,
+  profile,
+  enabled,
+  onToggle,
+}: {
+  room: Room;
+  profile: Profile;
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const { status, remoteStreams } = useVoiceRoom(room.id, profile.id, enabled);
+  return (
+    <div className="voice-console">
+      <button className={cx('voice-button', enabled && 'active')} type="button" onClick={() => onToggle(!enabled)}>
+        {enabled ? <Mic size={18} /> : <MicOff size={18} />}
+        {enabled ? 'Live microphone' : 'Start voice'}
+      </button>
+      <span>{status}</span>
+      {remoteStreams.map(({ peerId, stream }) => (
+        <RemoteAudio key={peerId} stream={stream} />
+      ))}
+    </div>
+  );
+}
+
+function useVoiceRoom(roomId: string, userId: string, enabled: boolean) {
+  const [status, setStatus] = useState('Voice idle');
+  const [remoteStreams, setRemoteStreams] = useState<Array<{ peerId: string; stream: MediaStream }>>([]);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+
+  useEffect(() => {
+    if (!enabled || !supabase) {
+      queueMicrotask(() => setStatus('Voice idle'));
+      return;
+    }
+
+    let disposed = false;
+    const client = supabase;
+    const peers = peersRef.current;
+    const channel = client.channel(`voice-room-${roomId}`, { config: { broadcast: { self: false } } });
+
+    const sendSignal = (payload: Record<string, unknown>) =>
+      channel.send({ type: 'broadcast', event: 'signal', payload: { ...payload, from: userId } });
+
+    const getPeer = (peerId: string) => {
+      const existing = peersRef.current.get(peerId);
+      if (existing) {
+        return existing;
+      }
+
+      const peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      localStreamRef.current?.getTracks().forEach((track) => {
+        if (localStreamRef.current) {
+          peer.addTrack(track, localStreamRef.current);
+        }
+      });
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          void sendSignal({ type: 'candidate', to: peerId, candidate: event.candidate });
+        }
+      };
+      peer.ontrack = (event) => {
+        const [stream] = event.streams;
+        setRemoteStreams((current) => {
+          const withoutPeer = current.filter((item) => item.peerId !== peerId);
+          return [...withoutPeer, { peerId, stream }];
+        });
+      };
+      peersRef.current.set(peerId, peer);
+      return peer;
+    };
+
+    async function createOffer(peerId: string) {
+      const peer = getPeer(peerId);
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await sendSignal({ type: 'offer', to: peerId, description: offer });
+    }
+
+    async function start() {
+      try {
+        localStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setStatus('Connected to room audio');
+
+        channel.on('broadcast', { event: 'signal' }, async ({ payload }) => {
+          if (disposed || payload.from === userId || (payload.to && payload.to !== userId)) {
+            return;
+          }
+
+          const peerId = String(payload.from);
+          const peer = getPeer(peerId);
+
+          if (payload.type === 'join') {
+            await createOffer(peerId);
+          }
+          if (payload.type === 'offer') {
+            await peer.setRemoteDescription(payload.description as RTCSessionDescriptionInit);
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            await sendSignal({ type: 'answer', to: peerId, description: answer });
+          }
+          if (payload.type === 'answer') {
+            await peer.setRemoteDescription(payload.description as RTCSessionDescriptionInit);
+          }
+          if (payload.type === 'candidate') {
+            await peer.addIceCandidate(payload.candidate as RTCIceCandidateInit);
+          }
+        });
+
+        channel.subscribe((state) => {
+          if (state === 'SUBSCRIBED') {
+            void sendSignal({ type: 'join' });
+          }
+        });
+      } catch {
+        setStatus('Microphone permission is required');
+      }
+    }
+
+    void start();
+
+    return () => {
+      disposed = true;
+      void sendSignal({ type: 'leave' });
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      peers.forEach((peer) => peer.close());
+      peers.clear();
+      setRemoteStreams([]);
+      void client.removeChannel(channel);
+    };
+  }, [enabled, roomId, userId]);
+
+  return { status, remoteStreams };
+}
+
+function RemoteAudio({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
+  return <audio ref={ref} autoPlay playsInline />;
+}
+
+function MessagesView({
+  profile,
+  conversations,
+  activeConversation,
+  directMessages,
+  onSelectConversation,
+  onSendMessage,
+  onStartConversation,
+  people,
+}: {
+  profile: Profile;
+  conversations: ConversationSummary[];
+  activeConversation: ConversationSummary | null;
+  directMessages: DirectMessage[];
+  onSelectConversation: (id: string) => void;
+  onSendMessage: (conversationId: string, body: string) => void;
+  onStartConversation: (profile: Profile) => void;
+  people: Profile[];
+}) {
+  const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('');
+  const messages = activeConversation ? directMessages.filter((item) => item.conversation_id === activeConversation.id) : [];
+  const candidates = people.filter(
+    (person) =>
+      person.id !== profile.id &&
+      `${person.full_name} ${person.handle}`.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (activeConversation) {
+      onSendMessage(activeConversation.id, message);
+      setMessage('');
+    }
+  }
+
+  return (
+    <div className="two-pane">
+      <section className="panel">
+        <SectionTitle icon={MessageCircle} title="Conversations" />
+        <label className="search-box">
+          <Search size={18} />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find people" />
+        </label>
+        {search ? (
+          <div className="stack">
+            {candidates.map((person) => (
+              <PersonRow key={person.id} person={person} action="Message" onAction={() => onStartConversation(person)} />
+            ))}
+          </div>
+        ) : (
+          <div className="stack">
+            {conversations.map((conversation) => (
+              <button
+                className={cx('conversation-row', activeConversation?.id === conversation.id && 'active')}
+                key={conversation.id}
+                type="button"
+                onClick={() => onSelectConversation(conversation.id)}
+              >
+                <img src={conversation.other.avatar_url || fallbackAvatar} alt="" />
+                <div>
+                  <strong>{conversation.other.full_name}</strong>
+                  <span>{conversation.lastMessage}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="panel conversation-panel-real">
+        {activeConversation ? (
+          <>
+            <div className="conversation-title">
+              <img src={activeConversation.other.avatar_url || fallbackAvatar} alt="" />
+              <div>
+                <h2>{activeConversation.other.full_name}</h2>
+                <span>@{activeConversation.other.handle}</span>
+              </div>
+            </div>
+            <div className="message-scroll">
+              {messages.map((item) => (
+                <MessageBubble key={item.id} mine={item.sender_id === profile.id}>
+                  <p>{item.body}</p>
+                  <small>{formatTime(item.created_at)}</small>
+                </MessageBubble>
+              ))}
+            </div>
+            <form className="send-form" onSubmit={submit}>
               <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Type a message" />
               <button type="submit" disabled={!message.trim()}>
                 <Send size={18} />
@@ -1560,557 +1218,282 @@ function MessagesScreen({
             </form>
           </>
         ) : (
-          <div className="empty-state">
-            <MessageCircle size={36} />
-            <h3>No conversations</h3>
-            <p>Start from a profile card.</p>
-          </div>
+          <EmptyState icon={MessageCircle} title="No conversation selected" body="Search for someone and start a real chat." />
         )}
       </section>
     </div>
   );
 }
 
-function ProfileScreen({
-  state,
-  currentUser,
-  onUpdateUser,
-  onFollow,
-  onMessageUser,
+function PeopleView({ profile, people, onMessage }: { profile: Profile; people: Profile[]; onMessage: (person: Profile) => void }) {
+  return (
+    <section className="panel">
+      <SectionTitle icon={Users} title="Members" />
+      <div className="people-grid">
+        {people
+          .filter((person) => person.id !== profile.id)
+          .map((person) => (
+            <article className="person-card" key={person.id}>
+              <img className="cover" src={person.cover_url || fallbackCover} alt="" />
+              <img className="avatar" src={person.avatar_url || fallbackAvatar} alt="" />
+              <h3>{person.full_name}</h3>
+              <span>@{person.handle}</span>
+              <p>{person.bio || 'No bio yet.'}</p>
+              <button className="secondary-action compact" type="button" onClick={() => onMessage(person)}>
+                <MessageCircle size={18} />
+                Message
+              </button>
+            </article>
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function WalletView({
+  profile,
+  packages,
+  purchases,
+  onRequestPurchase,
 }: {
-  state: AppState;
-  currentUser: User;
-  onUpdateUser: (patch: Partial<User>) => void;
-  onFollow: (userId: string) => void;
-  onMessageUser: (user: User) => void;
+  profile: Profile;
+  packages: CoinPackage[];
+  purchases: CoinPurchase[];
+  onRequestPurchase: (pack: CoinPackage, reference: string) => void;
 }) {
-  const submitProfile = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    onUpdateUser({
-      name: String(form.get('name') ?? currentUser.name).trim(),
-      bio: String(form.get('bio') ?? currentUser.bio).trim(),
-      interests: String(form.get('interests') ?? '')
-        .split(',')
-        .map((interest) => interest.trim())
-        .filter(Boolean),
-    });
-  };
+  const [references, setReferences] = useState<Record<string, string>>({});
 
   return (
-    <div className="profile-layout">
-      <section className="content-section profile-hero">
-        <img className="profile-cover" src={currentUser.cover} alt="" />
-        <div className="profile-top">
-          <img src={currentUser.avatar} alt="" />
-          <div>
-            <p className="eyebrow">@{currentUser.handle}</p>
-            <h2>{currentUser.name}</h2>
-            <span>{currentUser.bio}</span>
-          </div>
-          <div className="vip-token">
-            <Crown size={18} />
-            {currentUser.vipTier}
-          </div>
-        </div>
-        <div className="metric-row compact-row">
-          <Metric icon={Users} label="Followers" value={formatNumber(currentUser.followers.length)} tone="mint" />
-          <Metric icon={UserPlus} label="Following" value={formatNumber(currentUser.following.length)} tone="cyan" />
-          <Metric icon={Star} label="Level" value={currentUser.level.toString()} tone="gold" />
-          <Metric icon={Activity} label="Activity" value={`${currentUser.activity}%`} tone="coral" />
+    <div className="wallet-grid-real">
+      <section className="panel wallet-balance-real">
+        <SectionTitle icon={WalletCards} title="Balance" />
+        <strong>{formatNumber(profile.coins)}</strong>
+        <span>available coins</span>
+        <p>
+          Coin purchases are stored in the database. JazzCash/EasyPaisa provider verification is completed by an admin or
+          payment function before coins are credited.
+        </p>
+      </section>
+      <section className="panel">
+        <SectionTitle icon={CircleDollarSign} title="Buy coins" />
+        <div className="package-list-real">
+          {packages.map((pack) => (
+            <article key={pack.id}>
+              <div>
+                <strong>{pack.name}</strong>
+                <span>{formatNumber(pack.coins)} coins · PKR {formatNumber(pack.amount_pkr)} · {pack.provider}</span>
+              </div>
+              <input
+                value={references[pack.id] ?? ''}
+                onChange={(event) => setReferences((current) => ({ ...current, [pack.id]: event.target.value }))}
+                placeholder="Payment reference"
+              />
+              <button className="primary-action compact" type="button" onClick={() => onRequestPurchase(pack, references[pack.id] ?? '')}>
+                <Coins size={18} />
+                Request purchase
+              </button>
+            </article>
+          ))}
         </div>
       </section>
+      <section className="panel span-2">
+        <SectionTitle icon={Coins} title="Purchase history" />
+        <DataTable
+          headers={['Package', 'Coins', 'Amount', 'Provider', 'Status', 'Date']}
+          rows={purchases.map((purchase) => [
+            purchase.package_id.slice(0, 8),
+            formatNumber(purchase.coins),
+            `PKR ${formatNumber(purchase.amount_pkr)}`,
+            purchase.provider,
+            purchase.status,
+            formatDate(purchase.created_at),
+          ])}
+        />
+      </section>
+    </div>
+  );
+}
 
-      <section className="content-section">
-        <SectionTitle icon={BadgeCheck} title="Edit Profile" />
-        <form className="stacked-form" onSubmit={submitProfile}>
+function ProfileView({ profile, onUpdateProfile }: { profile: Profile; onUpdateProfile: (form: FormData) => void }) {
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onUpdateProfile(new FormData(event.currentTarget));
+  }
+
+  return (
+    <div className="profile-grid-real">
+      <section className="panel profile-preview-real">
+        <img className="cover" src={profile.cover_url || fallbackCover} alt="" />
+        <img className="avatar" src={profile.avatar_url || fallbackAvatar} alt="" />
+        <h2>{profile.full_name}</h2>
+        <span>@{profile.handle}</span>
+        <p>{profile.bio || 'No bio yet.'}</p>
+        <div className="interest-row">
+          {profile.interests.map((item) => (
+            <small key={item}>{item}</small>
+          ))}
+        </div>
+      </section>
+      <section className="panel">
+        <SectionTitle icon={Edit3} title="Customize profile" />
+        <form className="form-grid" onSubmit={submit}>
           <label>
             Display name
-            <input name="name" defaultValue={currentUser.name} />
+            <input name="full_name" defaultValue={profile.full_name} required />
+          </label>
+          <label>
+            Handle
+            <input name="handle" defaultValue={profile.handle} required />
           </label>
           <label>
             Bio
-            <textarea name="bio" rows={4} defaultValue={currentUser.bio} />
+            <textarea name="bio" defaultValue={profile.bio} rows={4} />
           </label>
           <label>
             Interests
-            <input name="interests" defaultValue={currentUser.interests.join(', ')} />
+            <input name="interests" defaultValue={profile.interests.join(', ')} />
+          </label>
+          <label>
+            Avatar image
+            <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+          </label>
+          <label>
+            Cover image
+            <input name="cover" type="file" accept="image/png,image/jpeg,image/webp" />
           </label>
           <button className="primary-action" type="submit">
             <Check size={18} />
-            Save Profile
+            Save changes
           </button>
         </form>
       </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Users} title="Community" />
-        <div className="creator-stack">
-          {state.users
-            .filter((user) => user.id !== currentUser.id)
-            .map((user) => {
-              const following = currentUser.following.includes(user.id);
-              return (
-                <article className="creator-card wide" key={user.id}>
-                  <img src={user.avatar} alt="" />
-                  <div>
-                    <strong>{user.name}</strong>
-                    <small>{user.bio}</small>
-                  </div>
-                  <button className={cx('pill-button', following && 'active')} type="button" onClick={() => onFollow(user.id)}>
-                    {following ? <Check size={16} /> : <UserPlus size={16} />}
-                    {following ? 'Following' : 'Follow'}
-                  </button>
-                  <button className="icon-button" type="button" onClick={() => onMessageUser(user)}>
-                    <MessageCircle size={18} />
-                  </button>
-                </article>
-              );
-            })}
-        </div>
-      </section>
     </div>
   );
 }
 
-function WalletScreen({
-  currentUser,
-  gifts,
-  transactions,
-  onBuyCoins,
-}: {
-  currentUser: User;
-  gifts: GiftType[];
-  transactions: Transaction[];
-  onBuyCoins: (pack: (typeof coinPackages)[number]) => void;
-}) {
-  return (
-    <div className="wallet-layout">
-      <section className="content-section wallet-balance">
-        <SectionTitle icon={WalletCards} title="Wallet" />
-        <div className="balance-orb">
-          <Coins size={30} />
-          <strong>{formatNumber(currentUser.coins)}</strong>
-          <span>available coins</span>
-        </div>
-        <div className="metric-row compact-row">
-          <Metric icon={Gift} label="Host earnings" value={formatNumber(currentUser.earnings)} tone="gold" />
-          <Metric icon={Crown} label="VIP" value={currentUser.vipTier} tone="coral" />
-        </div>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={WalletCards} title="Coin Packages" />
-        <div className="package-grid">
-          {coinPackages.map((pack) => (
-            <article className="package-card" key={pack.label}>
-              <strong>{pack.label}</strong>
-              <span>{formatNumber(pack.coins)} coins</span>
-              <small>{pack.price}</small>
-              <button className="primary-action compact" type="button" onClick={() => onBuyCoins(pack)}>
-                <Coins size={18} />
-                Add Coins
-              </button>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Gift} title="Gift Catalog" />
-        <div className="gift-grid">
-          {gifts.map((gift) => (
-            <article className="gift-card" key={gift.id}>
-              <span style={{ background: gift.accent }}>{gift.label}</span>
-              <strong>{gift.name}</strong>
-              <small>{gift.price} coins</small>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-section span-2">
-        <SectionTitle icon={BarChart3} title="Transactions" />
-        <DataTable
-          headers={['Type', 'Amount', 'Method', 'Status', 'Date']}
-          rows={transactions.slice(0, 10).map((transaction) => [
-            transaction.detail,
-            `${transaction.amount > 0 ? '+' : ''}${formatNumber(transaction.amount)}`,
-            transaction.method,
-            transaction.status,
-            formatDate(transaction.time),
-          ])}
-        />
-      </section>
-    </div>
-  );
-}
-
-function VipScreen({
-  currentUser,
-  plans,
-  onActivateVip,
-}: {
-  currentUser: User;
-  plans: VipPlan[];
-  onActivateVip: (plan: VipPlan) => void;
-}) {
-  return (
-    <div className="vip-layout">
-      <section className="content-section vip-head">
-        <SectionTitle icon={Crown} title="VIP Membership" />
-        <h2>{currentUser.vipTier} tier active</h2>
-        <p>Priority visibility, badges, room privileges, and reward boosters are tied to your profile.</p>
-      </section>
-      <div className="plan-grid">
-        {plans.map((plan) => (
-          <article className={cx('plan-card', currentUser.vipTier === plan.id && 'active')} key={plan.id}>
-            <div className="plan-top">
-              <span style={{ background: plan.accent }}>
-                <Crown size={18} />
-              </span>
-              <div>
-                <h3>{plan.id}</h3>
-                <small>{plan.spotlight}</small>
-              </div>
-            </div>
-            <strong>{formatNumber(plan.price)} coins</strong>
-            <ul>
-              {plan.benefits.map((benefit) => (
-                <li key={benefit}>
-                  <Check size={16} />
-                  {benefit}
-                </li>
-              ))}
-            </ul>
-            <button
-              className="primary-action compact"
-              type="button"
-              onClick={() => onActivateVip(plan)}
-              disabled={currentUser.vipTier === plan.id}
-            >
-              <Sparkles size={18} />
-              {currentUser.vipTier === plan.id ? 'Active' : 'Activate'}
-            </button>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function GamesScreen({
-  currentUser,
-  stats,
-  onUpdateStats,
-}: {
-  currentUser: User;
-  stats: AppState['gameStats'];
-  onUpdateStats: (patch: Partial<AppState['gameStats']>, coinBonus?: number) => void;
-}) {
-  const [beatRunning, setBeatRunning] = useState(false);
-  const [score, setScore] = useState(0);
-  const [seconds, setSeconds] = useState(10);
-  const [spinResult, setSpinResult] = useState<string>('Ready');
-
-  useEffect(() => {
-    if (!beatRunning) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setSeconds((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer);
-          setBeatRunning(false);
-          const best = Math.max(stats.beatTapBest, score);
-          const bonus = score >= best ? 75 : 20;
-          onUpdateStats({ beatTapBest: best, dailyStreak: stats.dailyStreak + 1 }, bonus);
-          return 10;
-        }
-
-        return value - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [beatRunning, onUpdateStats, score, stats.beatTapBest, stats.dailyStreak]);
-
-  const startBeat = () => {
-    setScore(0);
-    setSeconds(10);
-    setBeatRunning(true);
-  };
-
-  const spin = () => {
-    const rewards = [25, 50, 75, 120, 180];
-    const reward = rewards[Math.floor(Math.random() * rewards.length)];
-    setSpinResult(`+${reward} coins`);
-    onUpdateStats({ spinWins: stats.spinWins + 1 }, reward);
-  };
-
-  return (
-    <div className="games-layout">
-      <section className="content-section game-hero">
-        <SectionTitle icon={Gamepad2} title="Mini Games" />
-        <div className="metric-row compact-row">
-          <Metric icon={Zap} label="Beat best" value={stats.beatTapBest.toString()} tone="cyan" />
-          <Metric icon={Flame} label="Streak" value={stats.dailyStreak.toString()} tone="coral" />
-          <Metric icon={Coins} label="Coins" value={formatNumber(currentUser.coins)} tone="gold" />
-        </div>
-      </section>
-
-      <section className="content-section beat-game">
-        <SectionTitle icon={Activity} title="Beat Tap" />
-        <button
-          className={cx('beat-pad', beatRunning && 'active')}
-          type="button"
-          onClick={() => (beatRunning ? setScore((value) => value + 1) : startBeat())}
-        >
-          <span>{beatRunning ? score : 'Start'}</span>
-        </button>
-        <div className="game-controls">
-          <span>{seconds}s</span>
-          <button className="secondary-action compact" type="button" onClick={startBeat}>
-            <Zap size={18} />
-            Restart
-          </button>
-        </div>
-      </section>
-
-      <section className="content-section spin-game">
-        <SectionTitle icon={Sparkles} title="Lucky Spin" />
-        <div className="spin-wheel">
-          <Sparkles size={42} />
-          <strong>{spinResult}</strong>
-        </div>
-        <button className="primary-action" type="button" onClick={spin}>
-          <RefreshCw size={18} />
-          Spin
-        </button>
-      </section>
-    </div>
-  );
-}
-
-function AdminPanel({
-  state,
-  onToggleUserBlock,
-  onToggleRoomLock,
+function AdminView({
+  people,
+  rooms,
+  purchases,
+  onCompletePurchase,
+  onToggleBlockUser,
   onEndRoom,
-  onSaveGift,
-  onSendAnnouncement,
 }: {
-  state: AppState;
-  onToggleUserBlock: (userId: string) => void;
-  onToggleRoomLock: (roomId: string) => void;
-  onEndRoom: (roomId: string) => void;
-  onSaveGift: (form: FormData) => void;
-  onSendAnnouncement: (form: FormData) => void;
+  people: Profile[];
+  rooms: Room[];
+  purchases: CoinPurchase[];
+  onCompletePurchase: (purchase: CoinPurchase) => void;
+  onToggleBlockUser: (profile: Profile) => void;
+  onEndRoom: (room: Room) => void;
 }) {
-  const giftSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onSaveGift(new FormData(event.currentTarget));
-    event.currentTarget.reset();
-  };
-
-  const announcementSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onSendAnnouncement(new FormData(event.currentTarget));
-    event.currentTarget.reset();
-  };
-
-  const revenue = state.transactions
-    .filter((transaction) => transaction.type === 'purchase')
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
-
   return (
-    <div className="admin-layout">
-      <section className="metric-row span-2">
-        <Metric icon={Users} label="Total users" value={formatNumber(state.users.length)} tone="mint" />
-        <Metric icon={Radio} label="Active rooms" value={formatNumber(state.rooms.filter((room) => room.live).length)} tone="cyan" />
-        <Metric icon={Coins} label="Revenue" value={formatNumber(revenue)} tone="gold" />
-        <Metric icon={Activity} label="Engagement" value={`${Math.round(state.users.reduce((sum, user) => sum + user.activity, 0) / state.users.length)}%`} tone="coral" />
-      </section>
-
-      <section className="content-section span-2">
-        <SectionTitle icon={Users} title="User Management" />
+    <div className="admin-grid-real">
+      <section className="panel span-2">
+        <SectionTitle icon={ShieldCheck} title="Pending purchases" />
         <DataTable
-          headers={['User', 'VIP', 'Followers', 'Coins', 'Status', 'Action']}
-          rows={state.users.map((user) => [
-            user.name,
-            user.vipTier,
-            formatNumber(user.followers.length),
-            formatNumber(user.coins),
-            user.blocked ? 'Blocked' : 'Active',
-            <button key={user.id} className="table-action" type="button" onClick={() => onToggleUserBlock(user.id)}>
-              {user.blocked ? <Unlock size={16} /> : <Ban size={16} />}
-              {user.blocked ? 'Unblock' : 'Block'}
-            </button>,
-          ])}
+          headers={['User', 'Coins', 'Amount', 'Provider', 'Reference', 'Action']}
+          rows={purchases
+            .filter((purchase) => purchase.status === 'pending')
+            .map((purchase) => [
+              purchase.profiles?.full_name ?? purchase.user_id.slice(0, 8),
+              formatNumber(purchase.coins),
+              `PKR ${formatNumber(purchase.amount_pkr)}`,
+              purchase.provider,
+              purchase.provider_reference ?? '-',
+              <button className="table-action" type="button" onClick={() => onCompletePurchase(purchase)}>
+                Complete
+              </button>,
+            ])}
         />
       </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Radio} title="Room Management" />
-        <div className="admin-card-stack">
-          {state.rooms.map((room) => (
-            <article className="admin-room" key={room.id}>
-              <img src={room.cover} alt="" />
+      <section className="panel">
+        <SectionTitle icon={Users} title="Users" />
+        <div className="stack">
+          {people.map((person) => (
+            <PersonRow
+              key={person.id}
+              person={person}
+              action={person.is_blocked ? 'Unblock' : 'Block'}
+              onAction={() => onToggleBlockUser(person)}
+              blocked={person.is_blocked}
+            />
+          ))}
+        </div>
+      </section>
+      <section className="panel">
+        <SectionTitle icon={Radio} title="Rooms" />
+        <div className="stack">
+          {rooms.map((room) => (
+            <article className="admin-room-real" key={room.id}>
               <div>
                 <strong>{room.title}</strong>
-                <small>{room.live ? 'Live' : 'Ended'} - {room.participants.length} participants</small>
+                <span>{room.is_live ? 'Live' : 'Ended'}</span>
               </div>
-              <button className="icon-button" type="button" onClick={() => onToggleRoomLock(room.id)}>
-                {room.locked ? <Unlock size={18} /> : <Lock size={18} />}
-              </button>
-              <button className="icon-button danger" type="button" onClick={() => onEndRoom(room.id)}>
-                <PhoneOff size={18} />
-              </button>
+              {room.is_live && (
+                <button className="danger-action compact" type="button" onClick={() => onEndRoom(room)}>
+                  End
+                </button>
+              )}
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Gift} title="Gift Management" />
-        <form className="stacked-form" onSubmit={giftSubmit}>
-          <input name="giftName" placeholder="Gift name" />
-          <input name="giftPrice" type="number" min={1} placeholder="Coin price" />
-          <button className="primary-action compact" type="submit">
-            <Plus size={18} />
-            Add Gift
-          </button>
-        </form>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Megaphone} title="Notifications" />
-        <form className="stacked-form" onSubmit={announcementSubmit}>
-          <input name="title" placeholder="Announcement title" />
-          <textarea name="body" rows={4} placeholder="Announcement body" />
-          <button className="primary-action compact" type="submit">
-            <Send size={18} />
-            Send
-          </button>
-        </form>
-      </section>
-
-      <section className="content-section">
-        <SectionTitle icon={Crown} title="VIP Control" />
-        <div className="admin-card-stack">
-          {state.vipPlans.map((plan) => (
-            <article className="admin-room" key={plan.id}>
-              <span className="plan-dot" style={{ background: plan.accent }} />
-              <div>
-                <strong>{plan.id}</strong>
-                <small>{formatNumber(plan.price)} coins - {plan.benefits.length} benefits</small>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-section span-2">
-        <SectionTitle icon={BarChart3} title="Transactions Management" />
-        <DataTable
-          headers={['Detail', 'Amount', 'Method', 'Status', 'Date']}
-          rows={state.transactions.slice(0, 12).map((transaction) => [
-            transaction.detail,
-            `${transaction.amount > 0 ? '+' : ''}${formatNumber(transaction.amount)}`,
-            transaction.method,
-            transaction.status,
-            formatDate(transaction.time),
-          ])}
-        />
       </section>
     </div>
   );
 }
 
-function RoomCard({ room, onJoinRoom }: { room: Room; onJoinRoom: (roomId: string) => void }) {
-  return (
-    <article className="room-card">
-      <img src={room.cover} alt="" />
-      <div className="room-card-body">
-        <span className="live-pill">
-          <span />
-          {room.live ? 'Live' : 'Ended'}
-        </span>
-        <h3>{room.title}</h3>
-        <p>{room.description}</p>
-        <div className="tag-row">
-          {room.tags.slice(0, 3).map((tag) => (
-            <small key={tag}>{tag}</small>
-          ))}
-        </div>
-        <div className="room-card-foot">
-          <span>{room.participants.length}/{room.capacity} inside</span>
-          <button className="primary-action compact" type="button" onClick={() => onJoinRoom(room.id)}>
-            <Radio size={18} />
-            Join
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string;
-  tone: 'mint' | 'cyan' | 'coral' | 'gold';
-}) {
-  return (
-    <article className={cx('metric-card', tone)}>
-      <Icon size={20} />
-      <div>
-        <strong>{value}</strong>
-        <span>{label}</span>
-      </div>
-    </article>
-  );
-}
-
-function SectionTitle({
-  icon: Icon,
-  title,
+function PersonRow({
+  person,
   action,
   onAction,
+  blocked,
 }: {
-  icon: typeof Radio;
-  title: string;
-  action?: string;
-  onAction?: () => void;
+  person: Profile;
+  action: string;
+  onAction: () => void;
+  blocked?: boolean;
 }) {
+  return (
+    <article className={cx('person-row', blocked && 'blocked')}>
+      <img src={person.avatar_url || fallbackAvatar} alt="" />
+      <div>
+        <strong>{person.full_name}</strong>
+        <span>@{person.handle}</span>
+      </div>
+      <button className="secondary-action compact" type="button" onClick={onAction}>
+        {blocked ? <Ban size={18} /> : <UserPlus size={18} />}
+        {action}
+      </button>
+    </article>
+  );
+}
+
+function SectionTitle({ icon: Icon, title }: { icon: typeof Radio; title: string }) {
   return (
     <div className="section-title">
       <div>
         <Icon size={20} />
         <h2>{title}</h2>
       </div>
-      {action && (
-        <button type="button" onClick={onAction}>
-          {action}
-        </button>
-      )}
     </div>
   );
 }
 
-function DataTable({
-  headers,
-  rows,
-}: {
-  headers: string[];
-  rows: Array<Array<ReactNode>>;
-}) {
+function MessageBubble({ mine, children }: { mine?: boolean; children: ReactNode }) {
+  return <article className={cx('message-bubble-real', mine && 'mine')}>{children}</article>;
+}
+
+function EmptyState({ icon: Icon, title, body }: { icon: typeof Radio; title: string; body: string }) {
+  return (
+    <div className="empty-state">
+      <Icon size={34} />
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </div>
+  );
+}
+
+function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   return (
     <div className="table-wrap">
       <table>
@@ -2122,13 +1505,19 @@ function DataTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => (
-                <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>
-              ))}
+          {rows.length ? (
+            rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={headers.length}>No records yet.</td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>
