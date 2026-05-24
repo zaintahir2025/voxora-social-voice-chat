@@ -1,8 +1,26 @@
-node_modules
-dist
+# Flutter / Dart
+*.dart_tool/
+.dart_tool/
+.packages
+.pub/
+build/
+node_modules/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Supabase local
+supabase/.temp/
+
+# Misc
+*.log
 .env
 .env.local
-.DS_Store
-*.log
-.vite
-supabase/.temp

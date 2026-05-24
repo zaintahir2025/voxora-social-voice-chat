@@ -1,42 +1,55 @@
 # Voxora
 
-Voxora is a real Supabase-backed social voice chat application deployed from a static Vite/React frontend to GitHub Pages.
+Voxora is a free Supabase-backed social and professional communication platform built with **Flutter** for web, Android, iOS, Windows, macOS, and Linux.
 
 ## What Works
 
 - Supabase email/password authentication.
 - Automatic profile creation on signup.
 - Profile customization with display name, handle, bio, interests, avatar upload, and cover upload.
-- Member discovery and direct conversations.
-- Realtime direct messages stored in Postgres.
-- Live room creation, joining, participant tracking, room chat, and gift sending.
-- Browser WebRTC voice connections with Supabase Realtime broadcast signaling.
-- Coin wallet, coin packages, purchase requests, purchase history, and admin completion that credits coins.
-- Admin tools for purchase approval, user blocking, and ending live rooms.
-- Row Level Security on all public tables and storage policies for user media.
+- Member discovery for making friends and starting conversations.
+- Direct conversations, group conversations, and realtime messages stored in Postgres.
+- Live rooms for hangouts, study rooms, communities, and professional meetings.
+- Meeting controls in each room: agenda, decisions, action items, invite links, participant list, room chat, join/leave, and WebRTC voice.
+- Games: Chess, Ludo, and Cards, playable inside rooms.
+- Admin moderation tools for user blocking and ending live rooms.
+- Responsive UX: desktop sidebar layout, tablet-friendly split panes, and mobile bottom navigation.
+
+## Free Platform
+
+Voxora has no paid tiers, no in-app purchases, and no monetized boosts. Every user gets the same core communication features.
 
 ## Security Notes
 
-Do not commit Supabase service-role keys, database passwords, payment provider secrets, or `.env.local`.
+Do not commit Supabase service-role keys, database passwords, or secrets.
 
-The GitHub Pages build uses only:
+The GitHub Pages build uses only browser-safe public configuration:
 
-```bash
-VITE_SUPABASE_URL
-VITE_SUPABASE_PUBLISHABLE_KEY
+```text
+SUPABASE_URL
+SUPABASE_ANON_KEY
+APP_PUBLIC_URL
 ```
 
-These values are browser-safe public configuration. Data protection is enforced by Supabase Row Level Security.
+Data protection is enforced by Supabase Row Level Security.
 
 ## Local Development
 
 ```bash
-npm install
-cp .env.example .env.local
-npm run dev
+flutter pub get
+flutter run -d chrome \
+  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=your_publishable_key \
+  --dart-define=APP_PUBLIC_URL=http://localhost:5000/
 ```
 
-Fill `.env.local` with your Supabase project URL and publishable key.
+For other platforms:
+
+```bash
+flutter run -d windows --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+flutter run -d macos --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+flutter run -d linux --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+```
 
 ## Database
 
@@ -45,18 +58,17 @@ Migrations live in `supabase/migrations`.
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push --linked
-supabase config push --project-ref <project-ref>
 ```
 
 The first registered user becomes an admin automatically.
 
-## Payments
-
-Coin purchase records are real database records, and admin completion credits coins atomically. JazzCash/EasyPaisa automatic verification requires merchant credentials and a server-side webhook/Edge Function; those secrets must never be placed in the GitHub Pages frontend.
-
-## Checks
+## Build For Web
 
 ```bash
-npm run lint
-npm run build
+flutter build web --release \
+  --dart-define=SUPABASE_URL=... \
+  --dart-define=SUPABASE_ANON_KEY=... \
+  --dart-define=APP_PUBLIC_URL=https://your-name.github.io/voxora-social-voice-chat/
 ```
+
+Output is in `build/web/`.
