@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/constants.dart';
 import 'config/theme.dart';
 import 'providers/app_provider.dart';
+import 'providers/bot_game_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/loading_screen.dart';
@@ -41,8 +42,11 @@ class VoxoraApp extends StatelessWidget {
       );
     }
 
-    return ChangeNotifierProvider(
-      create: (_) => AppProvider()..init(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppProvider()..init()),
+        ChangeNotifierProvider(create: (_) => BotGameProvider()),
+      ],
       child: MaterialApp(
         title: 'Voxora',
         debugShowCheckedModeBanner: false,

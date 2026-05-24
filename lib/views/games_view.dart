@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../config/constants.dart';
 import '../config/theme.dart';
-import '../models/models.dart';
+
 import '../providers/app_provider.dart';
+import '../providers/bot_game_provider.dart';
 import '../widgets/common_widgets.dart';
 
 class GamesView extends StatefulWidget {
@@ -16,62 +17,103 @@ class GamesView extends StatefulWidget {
 class _GamesViewState extends State<GamesView> {
   String _roomId = '';
   String _selectedGameId = '';
+  bool _vsBot = false;
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final botApp = context.watch<BotGameProvider>();
     if (_roomId.isEmpty && app.activeRoom != null) _roomId = app.activeRoom!.id;
     final roomGames = app.gameSessions.where((g) => g.roomId == _roomId && g.isActive).toList();
-    final selected = roomGames.where((g) => g.id == _selectedGameId).firstOrNull ?? roomGames.firstOrNull;
+    final botGames = botApp.games;
+    
+    final selectedRoomGame = roomGames.where((g) => g.id == _selectedGameId).firstOrNull ?? roomGames.firstOrNull;
+    final selectedBotGame = botApp.selectedGame;
+    final selectedGame = _vsBot ? selectedBotGame : selectedRoomGame;
+
     final joined = app.participants.any((p) => p.roomId == _roomId && p.userId == app.profile?.id);
     final isWide = MediaQuery.of(context).size.width > 900;
 
     final sidebar = VPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const VSectionTitle(icon: Icons.sports_esports_outlined, title: 'Games'),
-      DropdownButtonFormField<String>(
-        initialValue: app.liveRooms.any((r) => r.id == _roomId) ? _roomId : null,
-        decoration: const InputDecoration(labelText: 'Select Room', prefixIcon: Icon(Icons.radio, size: 18, color: VoxoraColors.muted)),
-        dropdownColor: VoxoraColors.surface,
-        style: const TextStyle(color: VoxoraColors.text),
-        items: app.liveRooms.map((r) => DropdownMenuItem(value: r.id, child: Text(r.title))).toList(),
-        onChanged: (v) => setState(() => _roomId = v ?? ''),
+      Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(border: Border.all(color: VoxoraColors.line), borderRadius: BorderRadius.circular(12), color: VoxoraColors.surfaceLight),
+        child: Row(children: [
+          Expanded(child: GestureDetector(onTap: () => setState(() => _vsBot = false), child: Container(padding: const EdgeInsets.symmetric(vertical: 8), alignment: Alignment.center, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: !_vsBot ? VoxoraColors.primary.withValues(alpha: 0.15) : null), child: Text('Multiplayer', style: TextStyle(color: !_vsBot ? VoxoraColors.primary : VoxoraColors.muted, fontWeight: FontWeight.w700))))),
+          Expanded(child: GestureDetector(onTap: () => setState(() => _vsBot = true), child: Container(padding: const EdgeInsets.symmetric(vertical: 8), alignment: Alignment.center, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: _vsBot ? VoxoraColors.lime.withValues(alpha: 0.15) : null), child: Text('vs Bot', style: TextStyle(color: _vsBot ? VoxoraColors.lime : VoxoraColors.muted, fontWeight: FontWeight.w700))))),
+        ]),
       ),
       const SizedBox(height: 16),
+      if (!_vsBot) ...[
+        DropdownButtonFormField<String>(
+          initialValue: app.liveRooms.any((r) => r.id == _roomId) ? _roomId : null,
+          decoration: const InputDecoration(labelText: 'Select Room', prefixIcon: Icon(Icons.radio, size: 18, color: VoxoraColors.muted)),
+          dropdownColor: VoxoraColors.surface,
+          style: const TextStyle(color: VoxoraColors.text),
+          items: app.liveRooms.map((r) => DropdownMenuItem(value: r.id, child: Text(r.title))).toList(),
+          onChanged: (v) => setState(() => _roomId = v ?? ''),
+        ),
+        const SizedBox(height: 16),
+      ],
       Text('NEW GAME', style: Theme.of(context).textTheme.labelSmall),
       const SizedBox(height: 10),
       ...['chess', 'ludo', 'cards'].map((g) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: _GameTypeCard(
           type: g,
-          enabled: joined && _roomId.isNotEmpty,
-          onTap: () => app.createGame(_roomId, g),
+          enabled: _vsBot || (joined && _roomId.isNotEmpty),
+          onTap: () {
+            if (_vsBot) {
+              if (g == 'chess') {
+                botApp.createChessGame();
+              } else if (g == 'ludo') {
+                botApp.createLudoGame();
+              } else if (g == 'cards') {
+                botApp.createCardsGame();
+              }
+            } else {
+              app.createGame(_roomId, g);
+            }
+          },
         ),
       )),
       const SizedBox(height: 12),
-      if (roomGames.isNotEmpty) ...[
+      if (_vsBot ? botGames.isNotEmpty : roomGames.isNotEmpty) ...[
         Text('ACTIVE GAMES', style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 10),
-        ...roomGames.map((g) => Padding(padding: const EdgeInsets.only(bottom: 8), child: VListRow(
-          isActive: selected?.id == g.id, onTap: () => setState(() => _selectedGameId = g.id),
-          child: Row(children: [
-            Icon(_gameIcon(g.gameType), size: 18, color: VoxoraColors.lime),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(g.title, style: const TextStyle(fontWeight: FontWeight.w700, color: VoxoraColors.text)),
-              Text('${g.gameType} · ${_fmtTime(g.createdAt)}', style: Theme.of(context).textTheme.bodySmall),
-            ])),
-          ]),
-        ))),
+        ...(_vsBot ? botGames : roomGames).map((dynamic g) {
+          final isBot = g is BotGame;
+          return Padding(padding: const EdgeInsets.only(bottom: 8), child: VListRow(
+            isActive: isBot ? botApp.selectedGameId == g.id : selectedRoomGame?.id == g.id, 
+            onTap: () {
+              if (isBot) {
+                botApp.selectGame(g.id);
+              } else {
+                setState(() => _selectedGameId = g.id);
+              }
+            },
+            child: Row(children: [
+              Icon(_gameIcon(g.gameType), size: 18, color: VoxoraColors.lime),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(isBot ? '${g.gameType.toUpperCase()} vs Bot' : g.title, style: const TextStyle(fontWeight: FontWeight.w700, color: VoxoraColors.text)),
+                Text('${g.gameType} · ${_fmtTime(g.createdAt.toString())}', style: Theme.of(context).textTheme.bodySmall),
+              ])),
+              if (isBot) GestureDetector(onTap: () => botApp.deleteGame(g.id), child: const Icon(Icons.close, size: 16, color: VoxoraColors.muted)),
+            ]),
+          ));
+        }),
       ] else
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text('No active games in this room.', style: Theme.of(context).textTheme.bodySmall),
+          child: Text('No active games.', style: Theme.of(context).textTheme.bodySmall),
         ),
     ]));
 
-    final stage = selected != null
-        ? VPanel(child: _GameBoard(game: selected))
-        : VPanel(child: const VEmptyState(icon: Icons.sports_esports_outlined, title: 'No game selected', body: 'Join a room and start a game from the sidebar.'));
+    final stage = selectedGame != null
+        ? VPanel(child: _GameBoard(game: selectedGame, isBot: _vsBot))
+        : VPanel(child: const VEmptyState(icon: Icons.sports_esports_outlined, title: 'No game selected', body: 'Start a new game or select an active one.'));
 
     if (isWide) return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 360, child: sidebar), const SizedBox(width: 18), Expanded(child: stage)]);
     return Column(children: [sidebar, const SizedBox(height: 18), stage]);
@@ -138,8 +180,9 @@ class _GameTypeCardState extends State<_GameTypeCard> {
 }
 
 class _GameBoard extends StatefulWidget {
-  final GameSession game;
-  const _GameBoard({required this.game});
+  final dynamic game; // GameSession or BotGame
+  final bool isBot;
+  const _GameBoard({required this.game, required this.isBot});
   @override
   State<_GameBoard> createState() => _GameBoardState();
 }
@@ -150,41 +193,70 @@ class _GameBoardState extends State<_GameBoard> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final botApp = context.watch<BotGameProvider>();
+    final title = widget.isBot ? '${widget.game.gameType.toUpperCase()} vs Bot' : widget.game.title;
+    
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          VStatusBadge(label: widget.game.gameType.toUpperCase(), color: VoxoraColors.lime, icon: Icons.sports_esports),
+          Row(children: [
+            VStatusBadge(label: widget.game.gameType.toUpperCase(), color: VoxoraColors.lime, icon: Icons.sports_esports),
+            if (widget.isBot) ...[
+              const SizedBox(width: 8),
+              const VStatusBadge(label: 'OFFLINE', color: VoxoraColors.muted, icon: Icons.wifi_off),
+            ],
+            if (widget.isBot && widget.game.result != null) ...[
+              const SizedBox(width: 8),
+              VStatusBadge(label: widget.game.result!, color: widget.game.result!.contains('win') ? VoxoraColors.success : VoxoraColors.cyan),
+            ],
+          ]),
           const SizedBox(height: 8),
-          Text(widget.game.title, style: Theme.of(context).textTheme.headlineMedium),
+          Text(title, style: Theme.of(context).textTheme.headlineMedium),
         ]),
-        VSecondaryButton(label: 'Join Game', icon: Icons.login, onTap: () => app.joinGame(widget.game)),
+        if (!widget.isBot)
+          VSecondaryButton(label: 'Join Game', icon: Icons.login, onTap: () => app.joinGame(widget.game)),
+        if (widget.isBot && botApp.botThinking)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: VoxoraColors.primary)),
+          ),
       ]),
       const SizedBox(height: 16),
       const Divider(),
       const SizedBox(height: 16),
-      if (widget.game.gameType == 'chess') _chessBoard(app),
-      if (widget.game.gameType == 'ludo') _ludoBoard(app),
-      if (widget.game.gameType == 'cards') _cardsTable(app),
+      if (widget.game.gameType == 'chess') _chessBoard(app, botApp),
+      if (widget.game.gameType == 'ludo') _ludoBoard(app, botApp),
+      if (widget.game.gameType == 'cards') _cardsTable(app, botApp),
     ]);
   }
 
-  Widget _chessBoard(AppProvider app) {
+  Widget _chessBoard(AppProvider app, BotGameProvider botApp) {
     final state = widget.game.state;
     final fen = state['fen'] as String? ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     final moves = (state['moves'] as List?)?.cast<String>() ?? [];
     final players = widget.game.players;
     final c = chess_lib.Chess.fromFEN(fen);
-    final myColor = players['white'] == app.profile?.id ? 'white' : players['black'] == app.profile?.id ? 'black' : null;
+    
+    String? myColor;
+    if (widget.isBot) {
+      myColor = players['white'] == 'player' ? 'white' : players['black'] == 'player' ? 'black' : null;
+    } else {
+      myColor = players['white'] == app.profile?.id ? 'white' : players['black'] == app.profile?.id ? 'black' : null;
+    }
+    
     final turnColor = c.turn == chess_lib.Color.WHITE ? 'white' : 'black';
     final status = c.in_checkmate ? '${turnColor == 'white' ? 'Black' : 'White'} wins!' : c.in_draw ? 'Draw' : '$turnColor to move';
     final files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     final ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
+    final wName = widget.isBot ? botApp.profileName(players['white']) : app.profileName(players['white']);
+    final bName = widget.isBot ? botApp.profileName(players['black']) : app.profileName(players['black']);
+
     return Column(children: [
       _metaRow([
-        _playerTag('White', app.profileName(players['white']), VoxoraColors.text),
+        _playerTag('White', wName, VoxoraColors.text),
         const Text(' vs ', style: TextStyle(color: VoxoraColors.muted)),
-        _playerTag('Black', app.profileName(players['black']), VoxoraColors.muted),
+        _playerTag('Black', bName, VoxoraColors.muted),
         const SizedBox(width: 12),
         VStatusBadge(label: status, color: c.in_checkmate ? VoxoraColors.danger : VoxoraColors.cyan),
       ]),
@@ -199,7 +271,7 @@ class _GameBoardState extends State<_GameBoard> {
           clipBehavior: Clip.antiAlias,
           child: GridView.count(
             crossAxisCount: 8, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            children: [for (final rank in ranks) for (final file in files) _chessSquare(c, '$file$rank', myColor, turnColor, app, fen, moves)],
+            children: [for (final rank in ranks) for (final file in files) _chessSquare(c, '$file$rank', myColor, turnColor, app, botApp, fen, moves)],
           ),
         )),
       ),
@@ -234,7 +306,7 @@ class _GameBoardState extends State<_GameBoard> {
     ]);
   }
 
-  Widget _chessSquare(chess_lib.Chess c, String sq, String? myColor, String turnColor, AppProvider app, String fen, List<String> moves) {
+  Widget _chessSquare(chess_lib.Chess c, String sq, String? myColor, String turnColor, AppProvider app, BotGameProvider botApp, String fen, List<String> moves) {
     final fileIdx = sq.codeUnitAt(0) - 97;
     final rankIdx = 8 - int.parse(sq[1]);
     final isDark = (fileIdx + rankIdx) % 2 == 1;
@@ -244,6 +316,9 @@ class _GameBoardState extends State<_GameBoard> {
     return GestureDetector(
       onTap: () {
         if (myColor == null || myColor != turnColor || c.game_over) return;
+        if (widget.isBot && botApp.botThinking) return;
+        if (!widget.isBot && !widget.game.isActive) return;
+        
         if (_selectedSquare == null) {
           if (piece != null && piece.color == (myColor == 'white' ? chess_lib.Color.WHITE : chess_lib.Color.BLACK)) {
             setState(() => _selectedSquare = sq);
@@ -253,7 +328,11 @@ class _GameBoardState extends State<_GameBoard> {
         final nc = chess_lib.Chess.fromFEN(fen);
         final moved = nc.move({'from': _selectedSquare!, 'to': sq, 'promotion': 'q'});
         if (moved) {
-          app.updateGame(widget.game.id, {'state': {'fen': nc.fen, 'moves': [...moves, nc.history.last.toString()]}});
+          if (widget.isBot) {
+            botApp.makeChessMove(widget.game.id, _selectedSquare!, sq);
+          } else {
+            app.updateGame(widget.game.id, {'state': {'fen': nc.fen, 'moves': [...moves, nc.history.last.toString()]}});
+          }
         } else if (piece != null && piece.color == (myColor == 'white' ? chess_lib.Color.WHITE : chess_lib.Color.BLACK)) {
           setState(() => _selectedSquare = sq);
           return;
@@ -288,16 +367,23 @@ class _GameBoardState extends State<_GameBoard> {
     return p.color == chess_lib.Color.WHITE ? (w[t] ?? '') : (b[t] ?? '');
   }
 
-  Widget _ludoBoard(AppProvider app) {
+  Widget _ludoBoard(AppProvider app, BotGameProvider botApp) {
     final state = widget.game.state;
     final turn = state['turn'] as String? ?? 'red';
     final dice = state['dice'] as int?;
     final tokens = state['tokens'] as Map<String, dynamic>? ?? {};
     final winner = state['winner'] as String?;
     final players = widget.game.players;
-    final myColor = ludoColorNames.firstWhere((c) => players[c] == app.profile?.id, orElse: () => '');
+    
+    String myColor = '';
+    if (widget.isBot) {
+      myColor = ludoColorNames.firstWhere((c) => players[c] == 'player', orElse: () => '');
+    } else {
+      myColor = ludoColorNames.firstWhere((c) => players[c] == app.profile?.id, orElse: () => '');
+    }
+    
     final activeColors = ludoColorNames.where((c) => players[c] != null).toList();
-    final canPlay = myColor == turn && winner == null;
+    final canPlay = myColor == turn && winner == null && (!widget.isBot || !botApp.botThinking);
 
     String nextTurn(String current) {
       final order = activeColors.isNotEmpty ? activeColors : ludoColorNames;
@@ -335,8 +421,12 @@ class _GameBoardState extends State<_GameBoard> {
         ),
         const SizedBox(width: 8),
         VGradientButton(label: 'Roll Dice', icon: Icons.casino, onTap: !canPlay || dice != null ? null : () {
-          final d = (DateTime.now().millisecondsSinceEpoch % 6) + 1;
-          app.updateGame(widget.game.id, {'state': {...state, 'dice': d}});
+          if (widget.isBot) {
+            botApp.rollLudoDice(widget.game.id);
+          } else {
+            final d = (DateTime.now().millisecondsSinceEpoch % 6) + 1;
+            app.updateGame(widget.game.id, {'state': {...state, 'dice': d}});
+          }
         }),
       ]),
       const SizedBox(height: 16),
@@ -344,6 +434,8 @@ class _GameBoardState extends State<_GameBoard> {
         final colorTokens = (tokens[color] as List?)?.cast<int>() ?? [0, 0, 0, 0];
         final playerColor = laneColors[color]!;
         final isMyTurn = myColor == color && canPlay;
+        final pName = widget.isBot ? botApp.profileName(players[color]) : app.profileName(players[color]);
+        
         return Container(
           width: 220,
           padding: const EdgeInsets.all(16),
@@ -360,19 +452,23 @@ class _GameBoardState extends State<_GameBoard> {
               const SizedBox(width: 8),
               Text(color[0].toUpperCase() + color.substring(1), style: TextStyle(fontWeight: FontWeight.w800, color: playerColor)),
             ]),
-            Text(app.profileName(players[color]), style: Theme.of(context).textTheme.bodySmall),
+            Text(pName, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: List.generate(4, (i) {
               final pos = colorTokens[i];
               final finished = pos >= 56;
               return GestureDetector(
                 onTap: myColor != color || dice == null ? null : () {
-                  final newTokens = Map<String, dynamic>.from(tokens);
-                  final ct = List<int>.from(colorTokens);
-                  ct[i] = (ct[i] + dice).clamp(0, 56);
-                  newTokens[color] = ct;
-                  final w = ct.every((p) => p >= 56) ? color : winner;
-                  app.updateGame(widget.game.id, {'state': {...state, 'tokens': newTokens, 'dice': null, 'turn': w != null ? turn : nextTurn(turn), 'winner': w}});
+                  if (widget.isBot) {
+                    botApp.moveLudoToken(widget.game.id, color, i);
+                  } else {
+                    final newTokens = Map<String, dynamic>.from(tokens);
+                    final ct = List<int>.from(colorTokens);
+                    ct[i] = (ct[i] + dice).clamp(0, 56);
+                    newTokens[color] = ct;
+                    final w = ct.every((p) => p >= 56) ? color : winner;
+                    app.updateGame(widget.game.id, {'state': {...state, 'tokens': newTokens, 'dice': null, 'turn': w != null ? turn : nextTurn(turn), 'winner': w}});
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -394,7 +490,7 @@ class _GameBoardState extends State<_GameBoard> {
     ]);
   }
 
-  Widget _cardsTable(AppProvider app) {
+  Widget _cardsTable(AppProvider app, BotGameProvider botApp) {
     final state = widget.game.state;
     final deck = (state['deck'] as List?)?.cast<String>() ?? [];
     final hands = state['hands'] as Map<String, dynamic>? ?? {};
@@ -402,17 +498,26 @@ class _GameBoardState extends State<_GameBoard> {
     final scores = state['scores'] as Map<String, dynamic>? ?? {};
     final round = state['round'] as int? ?? 1;
     final order = (widget.game.players['order'] as List?)?.cast<String>() ?? [];
-    final myHand = (hands[app.profile?.id] as List?)?.cast<String>() ?? [];
+    
+    final myId = widget.isBot ? 'player' : app.profile?.id;
+    final myHand = (hands[myId] as List?)?.cast<String>() ?? [];
     final allPlayed = order.isNotEmpty && order.every((id) => table[id] != null);
 
     void deal() {
-      final d = List<String>.from([for (final s in cardSuits) for (final r in cardRanks) '$r$s'])..shuffle();
-      final h = <String, dynamic>{};
-      for (final id in order) { h[id] = d.take(5).toList(); d.removeRange(0, 5.clamp(0, d.length)); }
-      app.updateGame(widget.game.id, {'state': {'deck': d, 'hands': h, 'table': {}, 'scores': scores, 'round': round + 1}});
+      if (widget.isBot) {
+        botApp.dealCards(widget.game.id);
+      } else {
+        final d = List<String>.from([for (final s in cardSuits) for (final r in cardRanks) '$r$s'])..shuffle();
+        final h = <String, dynamic>{};
+        for (final id in order) { h[id] = d.take(5).toList(); d.removeRange(0, 5.clamp(0, d.length)); }
+        app.updateGame(widget.game.id, {'state': {'deck': d, 'hands': h, 'table': {}, 'scores': scores, 'round': round + 1}});
+      }
     }
 
     void settle() {
+      // In bot mode, settling is automatic.
+      if (widget.isBot) return; 
+      
       final entries = order.map((id) => MapEntry(id, table[id] as String?)).where((e) => e.value != null).toList();
       if (entries.isEmpty) return;
       entries.sort((a, b) => cardRanks.indexOf(b.value!.replaceAll(RegExp(r'[SHDC]'), '')) - cardRanks.indexOf(a.value!.replaceAll(RegExp(r'[SHDC]'), '')));
@@ -436,15 +541,19 @@ class _GameBoardState extends State<_GameBoard> {
           child: Text('Deck: ${deck.length}', style: const TextStyle(fontSize: 12, color: VoxoraColors.muted, fontWeight: FontWeight.w600)),
         ),
         const SizedBox(width: 8),
-        VGradientButton(label: 'Deal', icon: Icons.style, onTap: order.length < 2 ? null : deal),
-        const SizedBox(width: 8),
-        VSecondaryButton(label: 'Score Round', icon: Icons.check, onTap: !allPlayed ? null : settle),
+        VGradientButton(label: 'Deal', icon: Icons.style, onTap: order.length < 2 || deck.isEmpty ? null : deal),
+        if (!widget.isBot) ...[
+          const SizedBox(width: 8),
+          VSecondaryButton(label: 'Score Round', icon: Icons.check, onTap: !allPlayed ? null : settle),
+        ],
       ]),
       const SizedBox(height: 16),
       Wrap(spacing: 12, runSpacing: 12, children: order.map((id) {
         final score = (scores[id] as int?) ?? 0;
         final played = table[id] as String?;
         final cardCount = (hands[id] as List?)?.length ?? 0;
+        final pName = widget.isBot ? botApp.profileName(id) : app.profileName(id);
+        
         return Container(
           width: 160, padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -453,7 +562,7 @@ class _GameBoardState extends State<_GameBoard> {
             color: VoxoraColors.surfaceLight,
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(app.profileName(id), style: const TextStyle(fontWeight: FontWeight.w700, color: VoxoraColors.text, fontSize: 13)),
+            Text(pName, style: const TextStyle(fontWeight: FontWeight.w700, color: VoxoraColors.text, fontSize: 13)),
             const SizedBox(height: 6),
             Row(children: [
               const Icon(Icons.emoji_events, size: 14, color: VoxoraColors.lime),
@@ -474,12 +583,16 @@ class _GameBoardState extends State<_GameBoard> {
           final suit = card.replaceAll(RegExp(r'[^SHDC]'), '');
           final isRed = suit == 'H' || suit == 'D';
           return GestureDetector(
-            onTap: table[app.profile?.id] != null ? null : () {
-              final h = Map<String, dynamic>.from(hands);
-              h[app.profile!.id] = myHand.where((c) => c != card).toList();
-              final t = Map<String, dynamic>.from(table);
-              t[app.profile!.id] = card;
-              app.updateGame(widget.game.id, {'state': {...state, 'hands': h, 'table': t}});
+            onTap: table[myId] != null || (widget.isBot && botApp.botThinking) ? null : () {
+              if (widget.isBot) {
+                botApp.playCard(widget.game.id, card);
+              } else {
+                final h = Map<String, dynamic>.from(hands);
+                h[myId!] = myHand.where((c) => c != card).toList();
+                final t = Map<String, dynamic>.from(table);
+                t[myId] = card;
+                app.updateGame(widget.game.id, {'state': {...state, 'hands': h, 'table': t}});
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
