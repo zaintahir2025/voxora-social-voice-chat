@@ -5,11 +5,24 @@ import '../models/models.dart';
 // ── Panel ──
 class VPanel extends StatelessWidget {
   final Widget child;
-  const VPanel({super.key, required this.child});
+  final EdgeInsetsGeometry? padding;
+  const VPanel({super.key, required this.child, this.padding});
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: padding ?? const EdgeInsets.all(20),
     decoration: VoxoraTheme.panelDecoration,
+    child: child,
+  );
+}
+
+// ── Glass Panel ──
+class VGlassPanel extends StatelessWidget {
+  final Widget child;
+  const VGlassPanel({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: VoxoraTheme.glassPanelDecoration,
     child: child,
   );
 }
@@ -18,14 +31,25 @@ class VPanel extends StatelessWidget {
 class VSectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
-  const VSectionTitle({super.key, required this.icon, required this.title});
+  final Widget? trailing;
+  const VSectionTitle({super.key, required this.icon, required this.title, this.trailing});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.only(bottom: 18),
     child: Row(children: [
-      Icon(icon, size: 20, color: VoxoraColors.primary),
-      const SizedBox(width: 10),
-      Text(title, style: Theme.of(context).textTheme.titleLarge),
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: LinearGradient(
+            colors: [VoxoraColors.primary.withValues(alpha: 0.2), VoxoraColors.cyan.withValues(alpha: 0.15)],
+          ),
+        ),
+        child: Icon(icon, size: 18, color: VoxoraColors.primary),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+      if (trailing != null) trailing!,
     ]),
   );
 }
@@ -40,37 +64,60 @@ class VEmptyState extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
     height: 300,
     child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 34, color: VoxoraColors.primary),
-      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [VoxoraColors.primary.withValues(alpha: 0.15), VoxoraColors.cyan.withValues(alpha: 0.1)],
+          ),
+        ),
+        child: Icon(icon, size: 36, color: VoxoraColors.primary),
+      ),
+      const SizedBox(height: 16),
       Text(title, style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 4),
+      const SizedBox(height: 6),
       Text(body, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
     ])),
   );
 }
 
 // ── List Row ──
-class VListRow extends StatelessWidget {
+class VListRow extends StatefulWidget {
   final bool isActive;
   final VoidCallback? onTap;
   final Widget child;
   const VListRow({super.key, this.isActive = false, this.onTap, required this.child});
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    borderRadius: BorderRadius.circular(8),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
+  State<VListRow> createState() => _VListRowState();
+}
+
+class _VListRowState extends State<VListRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          border: Border.all(color: isActive ? VoxoraColors.primary.withValues(alpha: 0.48) : VoxoraColors.line),
-          borderRadius: BorderRadius.circular(8),
-          gradient: isActive ? LinearGradient(colors: [VoxoraColors.primary.withValues(alpha: 0.12), VoxoraColors.cyan.withValues(alpha: 0.1)]) : null,
-          color: isActive ? null : Colors.white.withValues(alpha: 0.88),
+          border: Border.all(
+            color: widget.isActive
+                ? VoxoraColors.primary.withValues(alpha: 0.5)
+                : _hovered ? VoxoraColors.line : VoxoraColors.lineLight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          gradient: widget.isActive
+              ? LinearGradient(colors: [VoxoraColors.primary.withValues(alpha: 0.15), VoxoraColors.cyan.withValues(alpha: 0.1)])
+              : null,
+          color: widget.isActive ? null : (_hovered ? VoxoraColors.surfaceLight : VoxoraColors.surface),
         ),
-        child: child,
+        child: widget.child,
       ),
     ),
   );
@@ -85,17 +132,17 @@ class VPersonRow extends StatelessWidget {
   const VPersonRow({super.key, required this.person, required this.action, this.onAction, this.blocked = false});
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      border: Border.all(color: VoxoraColors.line),
-      borderRadius: BorderRadius.circular(8),
-      color: blocked ? const Color(0xFFFFFBFA) : Colors.white.withValues(alpha: 0.88),
+      border: Border.all(color: blocked ? VoxoraColors.danger.withValues(alpha: 0.3) : VoxoraColors.line),
+      borderRadius: BorderRadius.circular(12),
+      color: blocked ? VoxoraColors.danger.withValues(alpha: 0.08) : VoxoraColors.surface,
     ),
     child: Row(children: [
-      VAvatar(url: person.avatarUrl, size: 42),
+      VAvatar(url: person.avatarUrl, size: 44),
       const SizedBox(width: 12),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(person.fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
+        Text(person.fullName, style: const TextStyle(fontWeight: FontWeight.w700, color: VoxoraColors.text)),
         Text('@${person.handle}', style: Theme.of(context).textTheme.bodySmall),
       ])),
       VSecondaryButton(
@@ -112,27 +159,60 @@ class VAvatar extends StatelessWidget {
   final String? url;
   final double size;
   final bool border;
-  const VAvatar({super.key, this.url, this.size = 42, this.border = false});
+  final bool showOnline;
+  const VAvatar({super.key, this.url, this.size = 42, this.border = false, this.showOnline = false});
   @override
   Widget build(BuildContext context) {
     Widget img;
     if (url != null && url!.isNotEmpty) {
-      img = ClipOval(child: Image.network(url!, width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallback()));
+      img = ClipRRect(
+        borderRadius: BorderRadius.circular(size / 2),
+        child: Image.network(url!, width: size, height: size, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallback()),
+      );
     } else {
       img = _fallback();
     }
+    Widget result;
     if (border) {
-      return Container(
-        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
+      result = Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: VoxoraColors.surface, width: 3),
+          boxShadow: [BoxShadow(color: VoxoraColors.primary.withValues(alpha: 0.2), blurRadius: 8)],
+        ),
         child: img,
       );
+    } else {
+      result = img;
     }
-    return img;
+    if (showOnline) {
+      return Stack(
+        children: [
+          result,
+          Positioned(right: 0, bottom: 0, child: Container(
+            width: size * 0.28, height: size * 0.28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: VoxoraColors.online,
+              border: Border.all(color: VoxoraColors.surface, width: 2),
+            ),
+          )),
+        ],
+      );
+    }
+    return result;
   }
   Widget _fallback() => Container(
     width: size, height: size,
-    decoration: BoxDecoration(shape: BoxShape.circle, color: VoxoraColors.primary.withValues(alpha: 0.15)),
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: LinearGradient(
+        colors: [VoxoraColors.primary.withValues(alpha: 0.25), VoxoraColors.cyan.withValues(alpha: 0.2)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
     child: Icon(Icons.person, size: size * 0.5, color: VoxoraColors.primary),
   );
 }
@@ -144,14 +224,17 @@ class VAvatarStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible = members.take(3).toList();
-    if (visible.isEmpty) return VAvatar(size: 42);
+    if (visible.isEmpty) return const VAvatar(size: 42);
     return SizedBox(
       width: 42.0 + (visible.length - 1) * 24.0,
       height: 42,
       child: Stack(children: [
         for (var i = 0; i < visible.length; i++)
           Positioned(left: i * 24.0, child: Container(
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: VoxoraColors.surface, width: 2),
+            ),
             child: VAvatar(url: visible[i].avatarUrl, size: 38),
           )),
       ]),
@@ -174,19 +257,30 @@ class VMessageBubble extends StatelessWidget {
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isMine ? 16 : 4),
+            bottomRight: Radius.circular(isMine ? 4 : 16),
+          ),
+          gradient: isMine
+              ? const LinearGradient(colors: [VoxoraColors.primary, Color(0xFFE91E63)])
+              : null,
+          color: isMine ? null : VoxoraColors.surfaceLight,
           border: isMine ? null : Border.all(color: VoxoraColors.line),
-          gradient: isMine ? const LinearGradient(colors: [VoxoraColors.primary, VoxoraColors.cyan]) : null,
-          color: isMine ? null : Colors.white.withValues(alpha: 0.84),
+          boxShadow: isMine ? [BoxShadow(color: VoxoraColors.primary.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))] : null,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (name != null) Text(name!, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: isMine ? Colors.white : VoxoraColors.text)),
-          Text(body, style: TextStyle(color: isMine ? Colors.white : VoxoraColors.text)),
+          if (name != null) Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(name!, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: isMine ? Colors.white : VoxoraColors.cyan)),
+          ),
+          Text(body, style: TextStyle(color: isMine ? Colors.white : VoxoraColors.text, height: 1.4)),
           const SizedBox(height: 4),
-          Text(fmtTime, style: TextStyle(fontSize: 11, color: isMine ? Colors.white70 : VoxoraColors.muted)),
+          Text(fmtTime, style: TextStyle(fontSize: 11, color: isMine ? Colors.white60 : VoxoraColors.muted)),
         ]),
       ),
     );
@@ -194,48 +288,81 @@ class VMessageBubble extends StatelessWidget {
 }
 
 // ── Buttons ──
-class VGradientButton extends StatelessWidget {
+class VGradientButton extends StatefulWidget {
   final String label;
   final IconData? icon;
   final VoidCallback? onTap;
-  const VGradientButton({super.key, required this.label, this.icon, this.onTap});
+  final bool fullWidth;
+  const VGradientButton({super.key, required this.label, this.icon, this.onTap, this.fullWidth = false});
+  @override
+  State<VGradientButton> createState() => _VGradientButtonState();
+}
+
+class _VGradientButtonState extends State<VGradientButton> {
+  bool _pressed = false;
+
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: onTap != null ? const LinearGradient(colors: [VoxoraColors.primary, VoxoraColors.cyan]) : null,
-        color: onTap == null ? VoxoraColors.muted.withValues(alpha: 0.3) : null,
+    onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
+    onTapUp: widget.onTap != null ? (_) => setState(() => _pressed = false) : null,
+    onTapCancel: () => setState(() => _pressed = false),
+    onTap: widget.onTap,
+    child: AnimatedScale(
+      scale: _pressed ? 0.96 : 1.0,
+      duration: const Duration(milliseconds: 100),
+      child: Container(
+        width: widget.fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: widget.onTap != null
+              ? const LinearGradient(colors: [VoxoraColors.primary, Color(0xFFE91E63), VoxoraColors.coral])
+              : null,
+          color: widget.onTap == null ? VoxoraColors.line : null,
+          boxShadow: widget.onTap != null
+              ? [BoxShadow(color: VoxoraColors.primary.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))]
+              : null,
+        ),
+        child: Row(mainAxisSize: widget.fullWidth ? MainAxisSize.max : MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (widget.icon != null) ...[Icon(widget.icon!, size: 18, color: Colors.white), const SizedBox(width: 8)],
+          Text(widget.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+        ]),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (icon != null) ...[Icon(icon!, size: 18, color: Colors.white), const SizedBox(width: 8)],
-        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-      ]),
     ),
   );
 }
 
-class VSecondaryButton extends StatelessWidget {
+class VSecondaryButton extends StatefulWidget {
   final String label;
   final IconData? icon;
   final VoidCallback? onTap;
   const VSecondaryButton({super.key, required this.label, this.icon, this.onTap});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: VoxoraColors.line),
-        color: Colors.white.withValues(alpha: 0.9),
+  State<VSecondaryButton> createState() => _VSecondaryButtonState();
+}
+
+class _VSecondaryButtonState extends State<VSecondaryButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _hovered ? VoxoraColors.primary.withValues(alpha: 0.5) : VoxoraColors.line),
+          color: _hovered ? VoxoraColors.primary.withValues(alpha: 0.1) : VoxoraColors.surfaceLight,
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (widget.icon != null) ...[Icon(widget.icon!, size: 16, color: _hovered ? VoxoraColors.primary : VoxoraColors.muted), const SizedBox(width: 6)],
+          Text(widget.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _hovered ? VoxoraColors.primary : VoxoraColors.textSecondary)),
+        ]),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[Icon(icon!, size: 16, color: VoxoraColors.text), const SizedBox(width: 6)],
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-      ]),
     ),
   );
 }
@@ -249,8 +376,12 @@ class VDangerButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: VoxoraColors.danger),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(colors: [VoxoraColors.danger, VoxoraColors.danger.withValues(alpha: 0.85)]),
+        boxShadow: [BoxShadow(color: VoxoraColors.danger.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (icon != null) ...[Icon(icon!, size: 16, color: Colors.white), const SizedBox(width: 6)],
         Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
@@ -259,17 +390,100 @@ class VDangerButton extends StatelessWidget {
   );
 }
 
-class VGradientIconButton extends StatelessWidget {
+class VGradientIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onTap;
   const VGradientIconButton({super.key, required this.icon, this.onTap});
   @override
+  State<VGradientIconButton> createState() => _VGradientIconButtonState();
+}
+
+class _VGradientIconButtonState extends State<VGradientIconButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 44, height: 44,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: onTap != null ? VoxoraColors.primary : VoxoraColors.muted.withValues(alpha: 0.3)),
-      child: Icon(icon, color: Colors.white, size: 18),
+    onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
+    onTapUp: widget.onTap != null ? (_) => setState(() => _pressed = false) : null,
+    onTapCancel: () => setState(() => _pressed = false),
+    onTap: widget.onTap,
+    child: AnimatedScale(
+      scale: _pressed ? 0.9 : 1.0,
+      duration: const Duration(milliseconds: 100),
+      child: Container(
+        width: 44, height: 44,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: widget.onTap != null
+              ? const LinearGradient(colors: [VoxoraColors.primary, VoxoraColors.coral])
+              : null,
+          color: widget.onTap == null ? VoxoraColors.line : null,
+          boxShadow: widget.onTap != null
+              ? [BoxShadow(color: VoxoraColors.primary.withValues(alpha: 0.3), blurRadius: 8)]
+              : null,
+        ),
+        child: Icon(widget.icon, color: Colors.white, size: 18),
+      ),
+    ),
+  );
+}
+
+// ── Status badge ──
+class VStatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData? icon;
+  const VStatusBadge({super.key, required this.label, required this.color, this.icon});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      color: color.withValues(alpha: 0.15),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      if (icon != null) ...[Icon(icon!, size: 14, color: color), const SizedBox(width: 4)],
+      Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12)),
+    ]),
+  );
+}
+
+// ── Animated Pulse Dot ──
+class VPulseDot extends StatefulWidget {
+  final Color color;
+  final double size;
+  const VPulseDot({super.key, this.color = VoxoraColors.online, this.size = 10});
+  @override
+  State<VPulseDot> createState() => _VPulseDotState();
+}
+
+class _VPulseDotState extends State<VPulseDot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _ctrl,
+    builder: (context, child) => Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: widget.color,
+        boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.4 + _ctrl.value * 0.3), blurRadius: 4 + _ctrl.value * 6)],
+      ),
     ),
   );
 }
