@@ -53,7 +53,7 @@ class _ProfileViewState extends State<ProfileView> {
           const SizedBox(height: 10),
           Wrap(spacing: 8, children: p.interests.map((i) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), color: const Color(0xFFEEF4FF)),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), color: const Color(0xFFEAFBF6)),
             child: Text(i, style: const TextStyle(fontSize: 12)),
           )).toList()),
         ])),

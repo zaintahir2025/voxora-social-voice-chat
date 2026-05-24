@@ -184,7 +184,7 @@ class _RoomsViewState extends State<RoomsView> {
           decoration: BoxDecoration(
             border: Border.all(color: VoxoraColors.line),
             borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.78), const Color(0xFFF1F4FF).withValues(alpha: 0.72)]),
+            gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.78), const Color(0xFFEAFBF6).withValues(alpha: 0.72)]),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -266,7 +266,7 @@ class _RoomsViewState extends State<RoomsView> {
       decoration: BoxDecoration(
         border: Border.all(color: VoxoraColors.line),
         borderRadius: BorderRadius.circular(8),
-        gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.78), const Color(0xFFF1F4FF).withValues(alpha: 0.72)]),
+        gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.78), const Color(0xFFFFF4EC).withValues(alpha: 0.72)]),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, children: [
@@ -420,7 +420,7 @@ class _VoiceConsoleState extends State<VoiceConsole> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: _voice.enabled ? VoxoraColors.primary : const Color(0xFF252A3C),
+                  color: _voice.enabled ? VoxoraColors.primary : VoxoraColors.surfaceStrong,
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(_voice.enabled && !_voice.muted ? Icons.mic : Icons.mic_off, size: 18, color: Colors.white),

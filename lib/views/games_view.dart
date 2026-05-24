@@ -44,7 +44,7 @@ class _GamesViewState extends State<GamesView> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               border: Border.all(color: VoxoraColors.line), borderRadius: BorderRadius.circular(8),
-              gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.94), const Color(0xFFF6F1FF).withValues(alpha: 0.88)]),
+              gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0.94), const Color(0xFFFFF4EC).withValues(alpha: 0.88)]),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_gameTitle(g), style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -200,7 +200,7 @@ class _GameBoardState extends State<_GameBoard> {
       const SizedBox(height: 12),
       Wrap(spacing: 12, runSpacing: 12, children: ludoColorNames.map((color) {
         final colorTokens = (tokens[color] as List?)?.cast<int>() ?? [0, 0, 0, 0];
-        final laneColors = {'red': VoxoraColors.coral, 'blue': VoxoraColors.cyan, 'green': const Color(0xFF20C997), 'yellow': const Color(0xFFF8C51C)};
+        final laneColors = {'red': VoxoraColors.primary, 'blue': VoxoraColors.cyan, 'green': const Color(0xFF2FBF71), 'yellow': VoxoraColors.lime};
         return Container(width: 200, padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(border: Border.all(color: VoxoraColors.line), borderRadius: BorderRadius.circular(8), color: Colors.white),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

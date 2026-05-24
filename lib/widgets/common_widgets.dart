@@ -179,7 +179,7 @@ class VMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: isMine ? null : Border.all(color: VoxoraColors.line),
-          gradient: isMine ? const LinearGradient(colors: [VoxoraColors.primary, Color(0xFF274CFF)]) : null,
+          gradient: isMine ? const LinearGradient(colors: [VoxoraColors.primary, VoxoraColors.cyan]) : null,
           color: isMine ? null : Colors.white.withValues(alpha: 0.84),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

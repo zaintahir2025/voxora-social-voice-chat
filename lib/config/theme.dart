@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
-  static const primary = Color(0xFF6C3CFF);
-  static const primaryStrong = Color(0xFF4F26D9);
-  static const cyan = Color(0xFF00B8D9);
-  static const lime = Color(0xFFA7F432);
-  static const coral = Color(0xFFFF5C7A);
+  static const primary = Color(0xFFFF3D66);
+  static const primaryStrong = Color(0xFFC4214A);
+  static const cyan = Color(0xFF00A6A6);
+  static const lime = Color(0xFFFFD166);
+  static const coral = Color(0xFFFF7A3D);
   static const danger = Color(0xFFD92D20);
   static const warning = Color(0xFFB54708);
 
-  static const bg = Color(0xFFF7F8FC);
+  static const bg = Color(0xFFF5F8F3);
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceStrong = Color(0xFF10131F);
-  static const text = Color(0xFF161925);
-  static const muted = Color(0xFF687083);
-  static const line = Color(0x1F23283D);
+  static const surfaceStrong = Color(0xFF15171C);
+  static const text = Color(0xFF191B22);
+  static const muted = Color(0xFF69716F);
+  static const line = Color(0x24282F2B);
 
-  static const sidebarDark = Color(0xFF10131F);
-  static const sidebarAccent = Color(0xFF1A123A);
+  static const sidebarDark = Color(0xFF15171C);
+  static const sidebarAccent = Color(0xFF123B3A);
 }
 
 class VoxoraTheme {
@@ -163,7 +163,7 @@ class VoxoraTheme {
   static BoxDecoration get limeButtonDecoration => BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: const LinearGradient(
-          colors: [VoxoraColors.lime, Color(0xFFFFF6B7)],
+          colors: [VoxoraColors.lime, Color(0xFFFFF2C6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -175,7 +175,7 @@ class VoxoraTheme {
         gradient: LinearGradient(
           colors: [
             Colors.white.withValues(alpha: 0.92),
-            const Color(0xFFEFF4FF).withValues(alpha: 0.78),
+            const Color(0xFFEAFBF6).withValues(alpha: 0.78),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

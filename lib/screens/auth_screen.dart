@@ -73,7 +73,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0x6B0C0D18), Color(0x9E6C3CFF)],
+          colors: [Color(0xD115171C), Color(0xCC00A6A6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

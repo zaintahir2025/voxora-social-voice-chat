@@ -66,7 +66,7 @@ class _DesktopSidebar extends StatelessWidget {
       width: 264,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFA10131F), Color(0xFA1A123A)],
+          colors: [VoxoraColors.sidebarDark, VoxoraColors.sidebarAccent],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
