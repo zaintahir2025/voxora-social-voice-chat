@@ -28,12 +28,18 @@ class SetupScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                child: SvgPicture.asset('assets/voxora-mark.svg',
-                    width: 64, height: 64),
+                child: SvgPicture.asset(
+                  'assets/voxora-mark.svg',
+                  width: 64,
+                  height: 64,
+                ),
               ),
               const SizedBox(height: 24),
-              Text('Backend Configuration Required',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: VoxoraColors.text),
+              Text(
+                'Backend Configuration Required',
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(color: VoxoraColors.text),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -51,7 +57,9 @@ class SetupScreen extends StatelessWidget {
                     children: [
                       Text(
                         'Pass SUPABASE_URL and SUPABASE_ANON_KEY via --dart-define when running the app.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: VoxoraColors.textSecondary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: VoxoraColors.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Container(
@@ -80,17 +88,26 @@ class SetupScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             color: VoxoraColors.danger.withValues(alpha: 0.1),
-                            border: Border.all(color: VoxoraColors.danger.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: VoxoraColors.danger.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.error_outline, size: 18, color: VoxoraColors.danger),
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: VoxoraColors.danger,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   'Startup error: $error',
-                                  style: const TextStyle(color: VoxoraColors.danger, fontSize: 13),
+                                  style: const TextStyle(
+                                    color: VoxoraColors.danger,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ],

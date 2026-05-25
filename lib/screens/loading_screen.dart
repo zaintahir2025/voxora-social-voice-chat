@@ -22,12 +22,14 @@ class _LoadingScreenState extends State<LoadingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _fadeIn = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-    _scaleUp = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _fadeIn = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _scaleUp = Tween<double>(
+      begin: 0.95,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -80,26 +82,29 @@ class _LoadingScreenState extends State<LoadingScreen>
                           ),
                         ],
                       ),
-                      child: SvgPicture.asset('assets/voxora-mark.svg',
-                          width: 72, height: 72),
+                      child: SvgPicture.asset(
+                        'assets/voxora-mark.svg',
+                        width: 72,
+                        height: 72,
+                      ),
                     ),
                     const SizedBox(height: 32),
                     Text(
                       'VOXORA',
-                      style:
-                          Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: VoxoraColors.text,
-                                letterSpacing: 6,
-                                fontSize: 28,
-                              ),
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
+                            color: VoxoraColors.text,
+                            letterSpacing: 6,
+                            fontSize: 28,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Talk. Play. Build.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: VoxoraColors.muted,
-                            letterSpacing: 2,
-                          ),
+                        color: VoxoraColors.muted,
+                        letterSpacing: 2,
+                      ),
                     ),
                     const SizedBox(height: 40),
                     SizedBox(
@@ -108,10 +113,12 @@ class _LoadingScreenState extends State<LoadingScreen>
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
                           minHeight: 4,
-                          backgroundColor:
-                              VoxoraColors.line.withValues(alpha: 0.3),
-                          valueColor:
-                              const AlwaysStoppedAnimation<Color>(VoxoraColors.primary),
+                          backgroundColor: VoxoraColors.line.withValues(
+                            alpha: 0.3,
+                          ),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            VoxoraColors.primary,
+                          ),
                         ),
                       ),
                     ),

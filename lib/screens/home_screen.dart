@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
+import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../views/rooms_view.dart';
 import '../views/messages_view.dart';
@@ -27,10 +28,15 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final isWide = MediaQuery.of(context).size.width > 1080;
+    final effectiveView =
+        app.view == AppView.admin && !(app.profile?.isAdmin ?? false)
+        ? AppView.rooms
+        : app.view;
 
     final visibleNav = _navItems
-        .where((n) =>
-            n.view != AppView.admin || (app.profile?.isAdmin ?? false))
+        .where(
+          (n) => n.view != AppView.admin || (app.profile?.isAdmin ?? false),
+        )
         .toList();
 
     return Scaffold(
@@ -39,16 +45,17 @@ class HomeScreen extends StatelessWidget {
           ? Row(
               children: [
                 _DesktopSidebar(
-                    items: visibleNav,
-                    current: app.view,
-                    profile: app.profile!),
-                Expanded(child: _MainContent()),
+                  items: visibleNav,
+                  current: effectiveView,
+                  profile: app.profile!,
+                ),
+                Expanded(child: _MainContent(view: effectiveView)),
               ],
             )
-          : _MainContent(),
+          : _MainContent(view: effectiveView),
       bottomNavigationBar: isWide
           ? null
-          : _MobileBottomNav(items: visibleNav, current: app.view),
+          : _MobileBottomNav(items: visibleNav, current: effectiveView),
     );
   }
 }
@@ -63,10 +70,13 @@ class _NavItem {
 class _DesktopSidebar extends StatelessWidget {
   final List<_NavItem> items;
   final AppView current;
-  final dynamic profile;
+  final Profile profile;
 
-  const _DesktopSidebar(
-      {required this.items, required this.current, required this.profile});
+  const _DesktopSidebar({
+    required this.items,
+    required this.current,
+    required this.profile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -74,45 +84,61 @@ class _DesktopSidebar extends StatelessWidget {
     return Container(
       width: 260,
       decoration: BoxDecoration(
-        color: VoxoraColors.surface,
-        border: const Border(
-          right: BorderSide(color: VoxoraColors.line),
+        color: VoxoraColors.surfaceStrong.withValues(alpha: 0.88),
+        border: Border(
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 28,
+            offset: const Offset(8, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Brand
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    colors: [
-                      VoxoraColors.primary.withValues(alpha: 0.2),
-                      VoxoraColors.cyan.withValues(alpha: 0.15),
-                    ],
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      colors: [
+                        VoxoraColors.primary.withValues(alpha: 0.2),
+                        VoxoraColors.cyan.withValues(alpha: 0.15),
+                      ],
+                    ),
+                  ),
+                  child: SvgPicture.asset(
+                    'assets/voxora-mark.svg',
+                    width: 28,
+                    height: 28,
                   ),
                 ),
-                child: SvgPicture.asset('assets/voxora-mark.svg',
-                    width: 28, height: 28),
-              ),
-              const SizedBox(width: 12),
-              Column(
+                const SizedBox(width: 12),
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                const Text('Voxora',
-                    style: TextStyle(
-                        color: VoxoraColors.text,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 17)),
-                Text('Talk. Play. Build.',
-                    style: TextStyle(
-                        color: VoxoraColors.muted, fontSize: 11)),
-              ]),
-            ]),
+                    Text(
+                      'VOXORA',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: VoxoraColors.cream,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Text(
+                      'Signal open',
+                      style: VoxoraTheme.condiment(fontSize: 20),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -140,36 +166,37 @@ class _DesktopSidebar extends StatelessWidget {
           // User info
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Container(
+            child: VLiquidGlass(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: VoxoraColors.surfaceLight,
-                border: Border.all(color: VoxoraColors.line),
-              ),
-              child: Row(children: [
-                VAvatar(
-                    url: (profile as dynamic)?.avatarUrl as String?,
-                    size: 36,
-                    showOnline: true),
-                const SizedBox(width: 10),
-                Expanded(
+              borderRadius: BorderRadius.circular(18),
+              child: Row(
+                children: [
+                  VAvatar(url: profile.avatarUrl, size: 36, showOnline: true),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(
-                          (profile as dynamic)?.fullName as String? ??
-                              'Member',
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.fullName,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: VoxoraColors.text)),
-                      Text(
-                          '@${(profile as dynamic)?.handle as String? ?? ""}',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: VoxoraColors.text,
+                          ),
+                        ),
+                        Text(
+                          '@${profile.handle}',
                           style: const TextStyle(
-                              fontSize: 11, color: VoxoraColors.muted)),
-                    ])),
-              ]),
+                            fontSize: 11,
+                            color: VoxoraColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Sign out
@@ -225,52 +252,61 @@ class _SidebarButtonState extends State<_SidebarButton> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             gradient: widget.isActive
-                ? LinearGradient(colors: [
-                    VoxoraColors.primary.withValues(alpha: 0.2),
-                    VoxoraColors.primary.withValues(alpha: 0.1),
-                  ])
+                ? LinearGradient(
+                    colors: [
+                      VoxoraColors.neon.withValues(alpha: 0.18),
+                      VoxoraColors.primary.withValues(alpha: 0.10),
+                    ],
+                  )
                 : null,
             color: !widget.isActive && _hovered
                 ? VoxoraColors.surfaceLight
                 : null,
             border: widget.isActive
-                ? Border.all(
-                    color: VoxoraColors.primary.withValues(alpha: 0.3))
+                ? Border.all(color: VoxoraColors.neon.withValues(alpha: 0.3))
                 : null,
           ),
-          child: Row(children: [
-            Icon(widget.icon,
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
                 size: 18,
                 color: widget.isActive
-                    ? VoxoraColors.primary
+                    ? VoxoraColors.neon
                     : widget.isDanger
-                        ? VoxoraColors.danger
-                        : _hovered
-                            ? VoxoraColors.text
-                            : VoxoraColors.muted),
-            const SizedBox(width: 12),
-            Text(widget.label,
+                    ? VoxoraColors.danger
+                    : _hovered
+                    ? VoxoraColors.text
+                    : VoxoraColors.muted,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                   color: widget.isActive
-                      ? VoxoraColors.primary
+                      ? VoxoraColors.neon
                       : widget.isDanger
-                          ? VoxoraColors.danger
-                          : _hovered
-                              ? VoxoraColors.text
-                              : VoxoraColors.muted,
-                )),
-            if (widget.isActive) ...[
-              const Spacer(),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                    shape: BoxShape.circle, color: VoxoraColors.primary),
+                      ? VoxoraColors.danger
+                      : _hovered
+                      ? VoxoraColors.text
+                      : VoxoraColors.muted,
+                ),
               ),
+              if (widget.isActive) ...[
+                const Spacer(),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: VoxoraColors.neon,
+                  ),
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
       ),
     );
@@ -287,51 +323,66 @@ class _MobileBottomNav extends StatelessWidget {
     final app = context.read<AppProvider>();
     return Container(
       decoration: BoxDecoration(
-        color: VoxoraColors.surface,
-        border: const Border(top: BorderSide(color: VoxoraColors.line)),
+        color: VoxoraColors.surfaceStrong.withValues(alpha: 0.92),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, -4)),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
         ],
       ),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: items.map((n) {
               final isActive = n.view == current;
-              return GestureDetector(
-                onTap: () => app.setView(n.view),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: isActive
-                        ? VoxoraColors.primary.withValues(alpha: 0.15)
-                        : Colors.transparent,
-                  ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(n.icon,
-                        size: 22,
-                        color: isActive
-                            ? VoxoraColors.primary
-                            : VoxoraColors.muted),
-                    const SizedBox(height: 3),
-                    Text(n.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              isActive ? FontWeight.w800 : FontWeight.w500,
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => app.setView(n.view),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isActive
+                          ? VoxoraColors.neon.withValues(alpha: 0.14)
+                          : Colors.transparent,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          n.icon,
+                          size: 22,
                           color: isActive
-                              ? VoxoraColors.primary
+                              ? VoxoraColors.neon
                               : VoxoraColors.muted,
-                        )),
-                  ]),
+                        ),
+                        const SizedBox(height: 3),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            n.label,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isActive
+                                  ? FontWeight.w800
+                                  : FontWeight.w500,
+                              color: isActive
+                                  ? VoxoraColors.neon
+                                  : VoxoraColors.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             }).toList(),
@@ -343,16 +394,19 @@ class _MobileBottomNav extends StatelessWidget {
 }
 
 class _MainContent extends StatelessWidget {
+  const _MainContent({required this.view});
+
+  final AppView view;
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
 
-    return Container(
-      color: VoxoraColors.bg,
+    return VSpaceBackground(
       child: Column(
         children: [
           // Topbar
-          _Topbar(),
+          _Topbar(view: view),
           // Pulse strip
           _PulseStrip(),
           // Notice
@@ -366,24 +420,40 @@ class _MainContent extends StatelessWidget {
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: VoxoraColors.lime.withValues(alpha: 0.1),
                     border: Border.all(
-                        color: VoxoraColors.lime.withValues(alpha: 0.3)),
+                      color: VoxoraColors.lime.withValues(alpha: 0.3),
+                    ),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(children: [
-                    Icon(Icons.notifications_outlined,
-                        size: 18, color: VoxoraColors.lime),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: Text(app.notice,
-                            style: TextStyle(
-                                color: VoxoraColors.lime, fontSize: 13))),
-                    Icon(Icons.close,
-                        size: 16, color: VoxoraColors.lime.withValues(alpha: 0.6)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_outlined,
+                        size: 18,
+                        color: VoxoraColors.lime,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          app.notice,
+                          style: TextStyle(
+                            color: VoxoraColors.lime,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.close,
+                        size: 16,
+                        color: VoxoraColors.lime.withValues(alpha: 0.6),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -391,7 +461,7 @@ class _MainContent extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
-              child: _viewContent(app.view),
+              child: _viewContent(view),
             ),
           ),
         ],
@@ -422,79 +492,95 @@ class _PulseStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final items = [
-      ('Live Rooms', app.liveRooms.length.toString(), Icons.radio,
-          VoxoraColors.primary),
-      ('Members', app.profiles.length.toString(), Icons.people,
-          VoxoraColors.cyan),
+      (
+        'Live Rooms',
+        app.liveRooms.length.toString(),
+        Icons.radio,
+        VoxoraColors.primary,
+      ),
+      (
+        'Members',
+        app.profiles.length.toString(),
+        Icons.people,
+        VoxoraColors.cyan,
+      ),
       (
         'Friends',
         app.friendships.where((f) => f.status == 'accepted').length.toString(),
         Icons.person_add,
-        VoxoraColors.success
+        VoxoraColors.success,
       ),
       (
         'Games',
         app.gameSessions.where((g) => g.isActive).length.toString(),
         Icons.sports_esports,
-        VoxoraColors.lime
+        VoxoraColors.lime,
       ),
     ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
-      child: LayoutBuilder(builder: (context, constraints) {
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: items.map((item) {
-            final w = constraints.maxWidth > 600
-                ? (constraints.maxWidth - 36) / 4
-                : (constraints.maxWidth - 12) / 2;
-            return SizedBox(
-              width: w,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: VoxoraColors.surface,
-                  border: Border.all(color: VoxoraColors.line),
-                ),
-                child: Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: item.$4.withValues(alpha: 0.12),
-                    ),
-                    child: Icon(item.$3, size: 18, color: item.$4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: items.map((item) {
+              final w = constraints.maxWidth > 600
+                  ? (constraints.maxWidth - 36) / 4
+                  : (constraints.maxWidth - 12) / 2;
+              return SizedBox(
+                width: w,
+                child: VLiquidGlass(
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: item.$4.withValues(alpha: 0.12),
+                        ),
+                        child: Icon(item.$3, size: 18, color: item.$4),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.$1,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.$2,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: VoxoraColors.text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text(item.$1,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(item.$2,
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: VoxoraColors.text)),
-                  ]),
-                ]),
-              ),
-            );
-          }).toList(),
-        );
-      }),
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
     );
   }
 }
 
 class _Topbar extends StatelessWidget {
+  const _Topbar({required this.view});
+
+  final AppView view;
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
@@ -514,41 +600,38 @@ class _Topbar extends StatelessWidget {
         children: [
           Expanded(
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Text(titles[app.view] ?? '',
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4),
-              Text('Signed in as @${app.profile?.handle ?? ""}',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ]),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                colors: [
-                  VoxoraColors.primary.withValues(alpha: 0.15),
-                  VoxoraColors.cyan.withValues(alpha: 0.1),
-                ],
-              ),
-              border: Border.all(
-                  color: VoxoraColors.primary.withValues(alpha: 0.2)),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titles[view] ?? '',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Signed in as @${app.profile?.handle ?? ""}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              VPulseDot(
-                  color: VoxoraColors.online, size: 8),
-              const SizedBox(width: 8),
-              Text(
-                app.profile?.isAdmin == true ? 'Admin' : 'Online',
-                style: const TextStyle(
+          ),
+          VLiquidGlass(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(999),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                VPulseDot(color: VoxoraColors.online, size: 8),
+                const SizedBox(width: 8),
+                Text(
+                  app.profile?.isAdmin == true ? 'Admin' : 'Online',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: VoxoraColors.text,
-                    fontSize: 13),
-              ),
-            ]),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

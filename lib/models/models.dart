@@ -30,22 +30,23 @@ class Profile {
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
-        id: json['id'] as String,
-        email: json['email'] as String?,
-        fullName: json['full_name'] as String? ?? 'Voxora Member',
-        handle: json['handle'] as String? ?? 'member',
-        avatarUrl: json['avatar_url'] as String?,
-        coverUrl: json['cover_url'] as String?,
-        bio: json['bio'] as String? ?? '',
-        interests: (json['interests'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        level: json['level'] as int? ?? 1,
-        isAdmin: json['is_admin'] as bool? ?? false,
-        isBlocked: json['is_blocked'] as bool? ?? false,
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    email: json['email'] as String?,
+    fullName: json['full_name'] as String? ?? 'Voxora Member',
+    handle: json['handle'] as String? ?? 'member',
+    avatarUrl: json['avatar_url'] as String?,
+    coverUrl: json['cover_url'] as String?,
+    bio: json['bio'] as String? ?? '',
+    interests:
+        (json['interests'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [],
+    level: json['level'] as int? ?? 1,
+    isAdmin: json['is_admin'] as bool? ?? false,
+    isBlocked: json['is_blocked'] as bool? ?? false,
+    createdAt: json['created_at'] as String? ?? '',
+  );
 }
 
 class Room {
@@ -74,17 +75,17 @@ class Room {
   });
 
   factory Room.fromJson(Map<String, dynamic> json) => Room(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        topic: json['topic'] as String? ?? 'General',
-        description: json['description'] as String? ?? '',
-        hostId: json['host_id'] as String,
-        capacity: json['capacity'] as int? ?? 200,
-        isLive: json['is_live'] as bool? ?? true,
-        isLocked: json['is_locked'] as bool? ?? false,
-        createdAt: json['created_at'] as String? ?? '',
-        endedAt: json['ended_at'] as String?,
-      );
+    id: json['id'] as String,
+    title: json['title'] as String,
+    topic: json['topic'] as String? ?? 'General',
+    description: json['description'] as String? ?? '',
+    hostId: json['host_id'] as String,
+    capacity: json['capacity'] as int? ?? 200,
+    isLive: json['is_live'] as bool? ?? true,
+    isLocked: json['is_locked'] as bool? ?? false,
+    createdAt: json['created_at'] as String? ?? '',
+    endedAt: json['ended_at'] as String?,
+  );
 }
 
 class RoomParticipant {
@@ -231,16 +232,16 @@ class GameSession {
   });
 
   factory GameSession.fromJson(Map<String, dynamic> json) => GameSession(
-        id: json['id'] as String,
-        roomId: json['room_id'] as String,
-        hostId: json['host_id'] as String,
-        gameType: json['game_type'] as String,
-        title: json['title'] as String? ?? '',
-        players: (json['players'] as Map<String, dynamic>?) ?? {},
-        state: (json['state'] as Map<String, dynamic>?) ?? {},
-        isActive: json['is_active'] as bool? ?? true,
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    roomId: json['room_id'] as String,
+    hostId: json['host_id'] as String,
+    gameType: json['game_type'] as String,
+    title: json['title'] as String? ?? '',
+    players: Map<String, dynamic>.from((json['players'] as Map?) ?? const {}),
+    state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
+    isActive: json['is_active'] as bool? ?? true,
+    createdAt: json['created_at'] as String? ?? '',
+  );
 }
 
 class Friendship {
@@ -259,12 +260,12 @@ class Friendship {
   });
 
   factory Friendship.fromJson(Map<String, dynamic> json) => Friendship(
-        id: json['id'] as String,
-        requesterId: json['requester_id'] as String,
-        addresseeId: json['addressee_id'] as String,
-        status: json['status'] as String? ?? 'pending',
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    requesterId: json['requester_id'] as String,
+    addresseeId: json['addressee_id'] as String,
+    status: json['status'] as String? ?? 'pending',
+    createdAt: json['created_at'] as String? ?? '',
+  );
 }
 
 class ConversationSummary {
@@ -299,10 +300,10 @@ class DirectMessage {
   });
 
   factory DirectMessage.fromJson(Map<String, dynamic> json) => DirectMessage(
-        id: json['id'] as String,
-        conversationId: json['conversation_id'] as String,
-        senderId: json['sender_id'] as String,
-        body: json['body'] as String,
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    conversationId: json['conversation_id'] as String,
+    senderId: json['sender_id'] as String,
+    body: json['body'] as String,
+    createdAt: json['created_at'] as String? ?? '',
+  );
 }

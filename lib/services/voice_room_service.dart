@@ -3,10 +3,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class VoiceRoomController extends ChangeNotifier {
-  VoiceRoomController({
-    required this.roomId,
-    required this.userId,
-  });
+  VoiceRoomController({required this.roomId, required this.userId});
 
   final String roomId;
   final String userId;
@@ -47,7 +44,7 @@ class VoiceRoomController extends ChangeNotifier {
 
       _channel = _client.channel(
         'voice-room-$roomId',
-        opts: const RealtimeChannelConfig(self: false),
+        opts: const RealtimeChannelConfig(self: false, private: true),
       );
 
       _channel!
@@ -58,16 +55,16 @@ class VoiceRoomController extends ChangeNotifier {
             },
           )
           .subscribe((status, error) {
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          _status = 'Connected to room audio';
-          _notify();
-          _sendSignal({'type': 'join'});
-        }
-        if (status == RealtimeSubscribeStatus.channelError) {
-          _status = error?.toString() ?? 'Voice channel error';
-          _notify();
-        }
-      });
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              _status = 'Connected to room audio';
+              _notify();
+              _sendSignal({'type': 'join'});
+            }
+            if (status == RealtimeSubscribeStatus.channelError) {
+              _status = error?.toString() ?? 'Voice channel error';
+              _notify();
+            }
+          });
     } catch (error) {
       _enabled = false;
       _status = 'Microphone unavailable';
@@ -194,7 +191,8 @@ class VoiceRoomController extends ChangeNotifier {
 
     peer.onAddStream = (stream) {
       _remoteStreams[peerId] = stream;
-      _status = 'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
+      _status =
+          'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
       _notify();
     };
 
@@ -202,7 +200,8 @@ class VoiceRoomController extends ChangeNotifier {
       final streams = event.streams;
       if (streams.isNotEmpty) {
         _remoteStreams[peerId] = streams.first;
-        _status = 'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
+        _status =
+            'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
         _notify();
       }
     };
@@ -257,7 +256,9 @@ class VoiceRoomController extends ChangeNotifier {
     await peer?.close();
     await peer?.dispose();
     if (_enabled) {
-      _status = remoteCount == 0 ? 'Connected to room audio' : 'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
+      _status = remoteCount == 0
+          ? 'Connected to room audio'
+          : 'Connected to $remoteCount remote speaker${remoteCount == 1 ? '' : 's'}';
     }
     _notify();
   }

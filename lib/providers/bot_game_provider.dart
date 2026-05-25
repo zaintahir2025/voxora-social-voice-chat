@@ -26,7 +26,12 @@ class BotGame {
 }
 
 const _botId = 'bot';
-const _botNames = {'bot': 'Computer', 'bot_1': 'Bot 1', 'bot_2': 'Bot 2', 'bot_3': 'Bot 3'};
+const _botNames = {
+  'bot': 'Computer',
+  'bot_1': 'Bot 1',
+  'bot_2': 'Bot 2',
+  'bot_3': 'Bot 3',
+};
 
 class BotGameProvider extends ChangeNotifier {
   final List<BotGame> _games = [];
@@ -115,7 +120,8 @@ class BotGameProvider extends ChangeNotifier {
       // Check if it's bot's turn
       final isWhite = chess.turn == chess_lib.Color.WHITE;
       final botColor = game.players['white'] == _botId ? 'white' : 'black';
-      final isBotTurn = (isWhite && botColor == 'white') || (!isWhite && botColor == 'black');
+      final isBotTurn =
+          (isWhite && botColor == 'white') || (!isWhite && botColor == 'black');
 
       if (!isBotTurn || chess.game_over) {
         _botThinking = false;
@@ -147,7 +153,9 @@ class BotGameProvider extends ChangeNotifier {
       // The side whose turn it is has been checkmated
       final loser = chess.turn == chess_lib.Color.WHITE ? 'white' : 'black';
       final loserIsBot = game.players[loser] == _botId;
-      game.result = loserIsBot ? '🎉 You win by checkmate!' : '😞 Computer wins by checkmate.';
+      game.result = loserIsBot
+          ? '🎉 You win by checkmate!'
+          : '😞 Computer wins by checkmate.';
     } else if (chess.in_stalemate) {
       game.result = '🤝 Stalemate — Draw.';
     } else if (chess.in_draw) {
@@ -160,7 +168,9 @@ class BotGameProvider extends ChangeNotifier {
     final id = 'bot_ludo_${DateTime.now().millisecondsSinceEpoch}';
     final players = <String, dynamic>{};
     for (final c in ludoColorNames) {
-      players[c] = c == playerColor ? 'player' : 'bot_${ludoColorNames.indexOf(c)}';
+      players[c] = c == playerColor
+          ? 'player'
+          : 'bot_${ludoColorNames.indexOf(c)}';
     }
     final game = BotGame(
       id: id,
@@ -200,7 +210,9 @@ class BotGameProvider extends ChangeNotifier {
     // Check if player has any valid moves
     final turn = state['turn'] as String;
     final tokens = List<int>.from((state['tokens'] as Map)[turn] as List);
-    final hasMove = tokens.any((t) => t < 56 && (t > 0 || dice == 6));
+    final hasMove = tokens.any(
+      (t) => t < 56 && (t > 0 || dice == 6) && t + dice <= 56,
+    );
     if (!hasMove) {
       // Skip turn
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -220,8 +232,9 @@ class BotGameProvider extends ChangeNotifier {
     final colorTokens = List<int>.from(allTokens[color] as List);
     if (colorTokens[tokenIdx] >= 56) return;
     if (colorTokens[tokenIdx] == 0 && dice != 6) return;
+    if (colorTokens[tokenIdx] + dice > 56) return;
 
-    colorTokens[tokenIdx] = (colorTokens[tokenIdx] + dice).clamp(0, 56);
+    colorTokens[tokenIdx] += dice;
     allTokens[color] = colorTokens;
     state['tokens'] = allTokens;
     state['dice'] = null;
@@ -231,7 +244,9 @@ class BotGameProvider extends ChangeNotifier {
       state['winner'] = color;
       game.isActive = false;
       final isPlayer = game.players[color] == 'player';
-      game.result = isPlayer ? '🎉 You win!' : '🤖 ${color[0].toUpperCase()}${color.substring(1)} bot wins!';
+      game.result = isPlayer
+          ? '🎉 You win!'
+          : '🤖 ${color[0].toUpperCase()}${color.substring(1)} bot wins!';
     }
 
     game.state = state;
@@ -290,14 +305,16 @@ class BotGameProvider extends ChangeNotifier {
       final opponentPos = <int>[];
       for (final c in ludoColorNames) {
         if (c != turn) {
-          opponentPos.addAll(List<int>.from(allTokens[c] as List).where((p) => p > 0 && p < 56));
+          opponentPos.addAll(
+            List<int>.from(allTokens[c] as List).where((p) => p > 0 && p < 56),
+          );
         }
       }
 
       final tokenIdx = LudoBot.chooseToken(myTokens, dice, opponentPos);
 
       if (tokenIdx >= 0) {
-        myTokens[tokenIdx] = (myTokens[tokenIdx] + dice).clamp(0, 56);
+        myTokens[tokenIdx] += dice;
         final newAllTokens = Map<String, dynamic>.from(allTokens);
         newAllTokens[turn] = myTokens;
         state['tokens'] = newAllTokens;
@@ -305,7 +322,8 @@ class BotGameProvider extends ChangeNotifier {
         if (myTokens.every((t) => t >= 56)) {
           state['winner'] = turn;
           game.isActive = false;
-          game.result = '🤖 ${turn[0].toUpperCase()}${turn.substring(1)} bot wins!';
+          game.result =
+              '🤖 ${turn[0].toUpperCase()}${turn.substring(1)} bot wins!';
         }
       }
 
@@ -414,7 +432,10 @@ class BotGameProvider extends ChangeNotifier {
 
       // Check if all played — auto-settle after delay
       if (order.every((id) => table[id] != null)) {
-        Future.delayed(const Duration(seconds: 1), () => _settleCardRound(gameId));
+        Future.delayed(
+          const Duration(seconds: 1),
+          () => _settleCardRound(gameId),
+        );
       }
     });
   }
@@ -430,11 +451,16 @@ class BotGameProvider extends ChangeNotifier {
     final round = (state['round'] as int? ?? 1);
 
     // Find winner of this round (highest rank)
-    final entries = order.map((id) => MapEntry(id, table[id] as String?)).where((e) => e.value != null).toList();
+    final entries = order
+        .map((id) => MapEntry(id, table[id] as String?))
+        .where((e) => e.value != null)
+        .toList();
     if (entries.isEmpty) return;
-    entries.sort((a, b) =>
-        cardRanks.indexOf(b.value!.replaceAll(RegExp(r'[SHDC]'), '')) -
-        cardRanks.indexOf(a.value!.replaceAll(RegExp(r'[SHDC]'), '')));
+    entries.sort(
+      (a, b) =>
+          cardRanks.indexOf(b.value!.replaceAll(RegExp(r'[SHDC]'), '')) -
+          cardRanks.indexOf(a.value!.replaceAll(RegExp(r'[SHDC]'), '')),
+    );
     final winner = entries.first.key;
     scores[winner] = ((scores[winner] as int?) ?? 0) + 1;
 
@@ -449,7 +475,10 @@ class BotGameProvider extends ChangeNotifier {
     if (allEmpty) {
       game.isActive = false;
       final playerScore = (scores['player'] as int?) ?? 0;
-      final maxBotScore = order.where((id) => id != 'player').map((id) => (scores[id] as int?) ?? 0).fold<int>(0, max);
+      final maxBotScore = order
+          .where((id) => id != 'player')
+          .map((id) => (scores[id] as int?) ?? 0)
+          .fold<int>(0, max);
       if (playerScore > maxBotScore) {
         game.result = '🎉 You win with $playerScore points!';
       } else if (playerScore == maxBotScore) {
@@ -497,7 +526,10 @@ class BotGameProvider extends ChangeNotifier {
   }
 
   List<String> _shuffledDeck() {
-    final deck = [for (final s in cardSuits) for (final r in cardRanks) '$r$s'];
+    final deck = [
+      for (final s in cardSuits)
+        for (final r in cardRanks) '$r$s',
+    ];
     deck.shuffle(Random());
     return deck;
   }

@@ -5,6 +5,7 @@ void main() {
   testWidgets('App boots', (tester) async {
     await tester.pumpWidget(const VoxoraApp());
     // Without Supabase config, shows setup screen
-    expect(find.text('Backend configuration required'), findsOneWidget);
+    expect(find.text('Backend Configuration Required'), findsOneWidget);
+    expect(find.textContaining('SUPABASE_URL'), findsWidgets);
   });
 }

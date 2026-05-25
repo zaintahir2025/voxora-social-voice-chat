@@ -7,68 +7,411 @@ import '../config/constants.dart';
 // ═══════════════════════════════════════════════════════════════
 
 class ChessBot {
-  static const _pieceVal = {'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000};
+  static const _pieceVal = {
+    'p': 100,
+    'n': 320,
+    'b': 330,
+    'r': 500,
+    'q': 900,
+    'k': 20000,
+  };
 
   // Piece-square tables (from white's view, index 0 = a8)
   static const _pawnPst = [
-     0,  0,  0,  0,  0,  0,  0,  0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-     5,  5, 10, 25, 25, 10,  5,  5,
-     0,  0,  0, 20, 20,  0,  0,  0,
-     5, -5,-10,  0,  0,-10, -5,  5,
-     5, 10, 10,-20,-20, 10, 10,  5,
-     0,  0,  0,  0,  0,  0,  0,  0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    10,
+    10,
+    20,
+    30,
+    30,
+    20,
+    10,
+    10,
+    5,
+    5,
+    10,
+    25,
+    25,
+    10,
+    5,
+    5,
+    0,
+    0,
+    0,
+    20,
+    20,
+    0,
+    0,
+    0,
+    5,
+    -5,
+    -10,
+    0,
+    0,
+    -10,
+    -5,
+    5,
+    5,
+    10,
+    10,
+    -20,
+    -20,
+    10,
+    10,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
   ];
   static const _knightPst = [
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50,
+    -50,
+    -40,
+    -30,
+    -30,
+    -30,
+    -30,
+    -40,
+    -50,
+    -40,
+    -20,
+    0,
+    0,
+    0,
+    0,
+    -20,
+    -40,
+    -30,
+    0,
+    10,
+    15,
+    15,
+    10,
+    0,
+    -30,
+    -30,
+    5,
+    15,
+    20,
+    20,
+    15,
+    5,
+    -30,
+    -30,
+    0,
+    15,
+    20,
+    20,
+    15,
+    0,
+    -30,
+    -30,
+    5,
+    10,
+    15,
+    15,
+    10,
+    5,
+    -30,
+    -40,
+    -20,
+    0,
+    5,
+    5,
+    0,
+    -20,
+    -40,
+    -50,
+    -40,
+    -30,
+    -30,
+    -30,
+    -30,
+    -40,
+    -50,
   ];
   static const _bishopPst = [
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5,  5,  5,  5,  5,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20,
+    -20,
+    -10,
+    -10,
+    -10,
+    -10,
+    -10,
+    -10,
+    -20,
+    -10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -10,
+    -10,
+    0,
+    10,
+    10,
+    10,
+    10,
+    0,
+    -10,
+    -10,
+    5,
+    5,
+    10,
+    10,
+    5,
+    5,
+    -10,
+    -10,
+    0,
+    5,
+    10,
+    10,
+    5,
+    0,
+    -10,
+    -10,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    -10,
+    -10,
+    5,
+    0,
+    0,
+    0,
+    0,
+    5,
+    -10,
+    -20,
+    -10,
+    -10,
+    -10,
+    -10,
+    -10,
+    -10,
+    -20,
   ];
   static const _rookPst = [
-     0,  0,  0,  0,  0,  0,  0,  0,
-     5, 10, 10, 10, 10, 10, 10,  5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-     0,  0,  0,  5,  5,  0,  0,  0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    5,
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    0,
+    0,
+    0,
+    5,
+    5,
+    0,
+    0,
+    0,
   ];
   static const _queenPst = [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-     -5,  0,  5,  5,  5,  5,  0, -5,
-      0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20,
+    -20,
+    -10,
+    -10,
+    -5,
+    -5,
+    -10,
+    -10,
+    -20,
+    -10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -10,
+    -10,
+    0,
+    5,
+    5,
+    5,
+    5,
+    0,
+    -10,
+    -5,
+    0,
+    5,
+    5,
+    5,
+    5,
+    0,
+    -5,
+    0,
+    0,
+    5,
+    5,
+    5,
+    5,
+    0,
+    -5,
+    -10,
+    5,
+    5,
+    5,
+    5,
+    5,
+    0,
+    -10,
+    -10,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0,
+    -10,
+    -20,
+    -10,
+    -10,
+    -5,
+    -5,
+    -10,
+    -10,
+    -20,
   ];
   static const _kingMidPst = [
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-     20, 20,  0,  0,  0,  0, 20, 20,
-     20, 30, 10,  0,  0, 10, 30, 20,
+    -30,
+    -40,
+    -40,
+    -50,
+    -50,
+    -40,
+    -40,
+    -30,
+    -30,
+    -40,
+    -40,
+    -50,
+    -50,
+    -40,
+    -40,
+    -30,
+    -30,
+    -40,
+    -40,
+    -50,
+    -50,
+    -40,
+    -40,
+    -30,
+    -30,
+    -40,
+    -40,
+    -50,
+    -50,
+    -40,
+    -40,
+    -30,
+    -20,
+    -30,
+    -30,
+    -40,
+    -40,
+    -30,
+    -30,
+    -20,
+    -10,
+    -20,
+    -20,
+    -20,
+    -20,
+    -20,
+    -20,
+    -10,
+    20,
+    20,
+    0,
+    0,
+    0,
+    0,
+    20,
+    20,
+    20,
+    30,
+    10,
+    0,
+    0,
+    10,
+    30,
+    20,
   ];
 
   static const _files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -131,7 +474,11 @@ class ChessBot {
         if (piece == null) continue;
         final type = piece.type.toString().toLowerCase();
         final matVal = _pieceVal[type] ?? 0;
-        final posVal = _posBonus(type, sq, piece.color == chess_lib.Color.WHITE);
+        final posVal = _posBonus(
+          type,
+          sq,
+          piece.color == chess_lib.Color.WHITE,
+        );
         if (piece.color == chess_lib.Color.WHITE) {
           score += matVal + posVal;
         } else {
@@ -146,17 +493,24 @@ class ChessBot {
 
   static int _posBonus(String type, String sq, bool isWhite) {
     final fileIdx = sq.codeUnitAt(0) - 97; // 'a' = 0
-    final rankIdx = int.parse(sq[1]) - 1;  // rank 1 = 0
+    final rankIdx = int.parse(sq[1]) - 1; // rank 1 = 0
     final whiteIdx = (7 - rankIdx) * 8 + fileIdx;
     final idx = isWhite ? whiteIdx : (rankIdx * 8 + fileIdx);
     switch (type) {
-      case 'p': return _pawnPst[idx];
-      case 'n': return _knightPst[idx];
-      case 'b': return _bishopPst[idx];
-      case 'r': return _rookPst[idx];
-      case 'q': return _queenPst[idx];
-      case 'k': return _kingMidPst[idx];
-      default: return 0;
+      case 'p':
+        return _pawnPst[idx];
+      case 'n':
+        return _knightPst[idx];
+      case 'b':
+        return _bishopPst[idx];
+      case 'r':
+        return _rookPst[idx];
+      case 'q':
+        return _queenPst[idx];
+      case 'k':
+        return _kingMidPst[idx];
+      default:
+        return 0;
     }
   }
 }
@@ -168,16 +522,21 @@ class ChessBot {
 class LudoBot {
   /// Choose which token (0-3) to move given the dice roll.
   /// Returns -1 if no valid move.
-  static int chooseToken(List<int> tokens, int dice, List<int> opponentPositions) {
+  static int chooseToken(
+    List<int> tokens,
+    int dice,
+    List<int> opponentPositions,
+  ) {
     // Score each token option
     int bestIdx = -1;
     int bestScore = -1;
 
     for (int i = 0; i < 4; i++) {
       final pos = tokens[i];
-      final newPos = (pos + dice).clamp(0, 56);
       if (pos >= 56) continue; // already home
       if (pos == 0 && dice != 6) continue; // can't leave base without 6
+      if (pos + dice > 56) continue; // must land exactly on home
+      final newPos = pos + dice;
 
       int score = 10; // base score for any valid move
 
@@ -198,9 +557,6 @@ class LudoBot {
         score += 60;
       }
 
-      // Don't overshoot (in real Ludo you can't go past home, but we clamp)
-      if (pos + dice > 56) score -= 20;
-
       if (score > bestScore) {
         bestScore = score;
         bestIdx = i;
@@ -210,7 +566,11 @@ class LudoBot {
     // Fallback: move any movable token
     if (bestIdx == -1) {
       for (int i = 0; i < 4; i++) {
-        if (tokens[i] < 56 && (tokens[i] > 0 || dice == 6)) return i;
+        if (tokens[i] < 56 &&
+            (tokens[i] > 0 || dice == 6) &&
+            tokens[i] + dice <= 56) {
+          return i;
+        }
       }
     }
     return bestIdx;
@@ -223,7 +583,11 @@ class LudoBot {
 
 class CardsBot {
   /// Choose which card to play from the hand.
-  static String? chooseCard(List<String> hand, Map<String, dynamic> table, List<String> order) {
+  static String? chooseCard(
+    List<String> hand,
+    Map<String, dynamic> table,
+    List<String> order,
+  ) {
     if (hand.isEmpty) return null;
 
     // Get cards already played on the table
