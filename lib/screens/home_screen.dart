@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../config/theme.dart';
 import '../providers/app_provider.dart';
 import '../views/feed_view.dart';
 import '../views/friends_view.dart';
@@ -24,35 +25,49 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 980;
     final app = context.watch<AppProvider>();
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Stack(
-        children: [
-          Row(
-            children: [
-              if (isWide) const _Sidebar(),
-              Expanded(
-                child: Column(
-                  children: [
-                    const _Topbar(),
-                    if (app.notice.isNotEmpty) const _NoticeBar(),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(
-                          isWide ? 28 : 14,
-                          0,
-                          isWide ? 28 : 14,
-                          24,
-                        ),
-                        child: const _ViewContent(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).scaffoldBackgroundColor,
+              scheme.surfaceContainerHighest.withValues(alpha: 0.36),
+              Theme.of(context).scaffoldBackgroundColor,
             ],
           ),
-          const _IncomingCallOverlay(),
-        ],
+        ),
+        child: Stack(
+          children: [
+            Row(
+              children: [
+                if (isWide) const _Sidebar(),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const _Topbar(),
+                      if (app.notice.isNotEmpty) const _NoticeBar(),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(
+                            isWide ? 28 : 14,
+                            0,
+                            isWide ? 28 : 14,
+                            24,
+                          ),
+                          child: const _ViewContent(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const _IncomingCallOverlay(),
+          ],
+        ),
       ),
       floatingActionButton: app.view == AppView.feed
           ? FloatingActionButton.small(
@@ -84,30 +99,62 @@ class _Sidebar extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: 248,
+      width: 276,
       decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(right: BorderSide(color: scheme.outlineVariant)),
+        color: scheme.surface.withValues(alpha: 0.92),
+        border: Border(
+          right: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.7),
+          ),
+        ),
       ),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(6, 6, 6, 18),
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.16),
+                      VoxoraColors.teal.withValues(alpha: 0.13),
+                      VoxoraColors.amber.withValues(alpha: 0.10),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.14),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    SvgPicture.asset(
-                      'assets/voxora-mark.svg',
-                      width: 34,
-                      height: 34,
+                    Container(
+                      width: 42,
+                      height: 42,
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: scheme.surface.withValues(alpha: 0.76),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SvgPicture.asset('assets/voxora-mark.svg'),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 11),
                     Expanded(
-                      child: Text(
-                        'Voxora',
-                        style: Theme.of(context).textTheme.titleLarge,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Voxora',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            'your people, live',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -120,8 +167,15 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              AppCard(
+              Container(
                 padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
                 child: Row(
                   children: [
                     UserAvatar(
@@ -140,9 +194,28 @@ class _Sidebar extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          Text(
-                            '@${app.profile?.handle ?? ''} - ${_statusLabel(app.profile?.status)}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '@${app.profile?.handle ?? ''}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.circle,
+                                size: 8,
+                                color: _statusColor(app.profile?.status),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _statusLabel(app.profile?.status),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -173,6 +246,14 @@ class _Sidebar extends StatelessWidget {
       _ => 'Offline',
     };
   }
+
+  Color _statusColor(String? status) {
+    return switch (status) {
+      'online' => VoxoraColors.green,
+      'away' => VoxoraColors.amber,
+      _ => VoxoraColors.slate,
+    };
+  }
 }
 
 class _NavButton extends StatelessWidget {
@@ -195,10 +276,19 @@ class _NavButton extends StatelessWidget {
           height: 46,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: active
-                ? scheme.primary.withValues(alpha: 0.12)
-                : Colors.transparent,
+            gradient: active
+                ? LinearGradient(
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.18),
+                      VoxoraColors.teal.withValues(alpha: 0.12),
+                    ],
+                  )
+                : null,
+            color: active ? null : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
+            border: active
+                ? Border.all(color: scheme.primary.withValues(alpha: 0.18))
+                : null,
           ),
           child: Row(
             children: [
@@ -231,7 +321,10 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final scheme = Theme.of(context).colorScheme;
     return NavigationBar(
+      backgroundColor: scheme.surface.withValues(alpha: 0.94),
+      indicatorColor: scheme.primary.withValues(alpha: 0.14),
       selectedIndex: HomeScreen._items.indexWhere(
         (item) => item.view == app.view,
       ),
@@ -308,16 +401,23 @@ class _Topbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final titles = {
-      AppView.feed: 'Feed',
-      AppView.friends: 'Friends',
-      AppView.messages: 'Chat',
-      AppView.games: 'Games',
-      AppView.profile: 'Profile',
+      AppView.feed: 'For you',
+      AppView.friends: 'Squad',
+      AppView.messages: 'DMs',
+      AppView.games: 'Arcade',
+      AppView.profile: 'Your profile',
+    };
+    final subtitles = {
+      AppView.feed: 'Fresh moments from your circle',
+      AppView.friends: 'Find friends and see who is around',
+      AppView.messages: 'Chats, calls, and group energy',
+      AppView.games: 'Quick matches with friends or bots',
+      AppView.profile: 'Your vibe, photos, and details',
     };
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
         child: Row(
           children: [
             Expanded(
@@ -329,12 +429,19 @@ class _Topbar extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   Text(
-                    'Signed in as @${app.profile?.handle ?? ''}',
+                    subtitles[app.view] ??
+                        'Signed in as @${app.profile?.handle ?? ''}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
+            UserAvatar(
+              url: app.profile?.avatarUrl,
+              size: 38,
+              online: app.profile?.status == 'online',
+            ),
+            const SizedBox(width: 8),
             const _NotificationBell(),
             const SizedBox(width: 6),
             ActionIconButton(
@@ -430,7 +537,7 @@ class _IncomingCallOverlay extends StatelessWidget {
                 elevation: 18,
                 color: scheme.surface,
                 shadowColor: Colors.black.withValues(alpha: 0.24),
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                   child: Row(
@@ -630,8 +737,14 @@ class _NoticeBar extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: scheme.primary.withValues(alpha: 0.10),
+            gradient: LinearGradient(
+              colors: [
+                scheme.primary.withValues(alpha: 0.12),
+                VoxoraColors.teal.withValues(alpha: 0.08),
+              ],
+            ),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.12)),
           ),
           child: Row(
             children: [

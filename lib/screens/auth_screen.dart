@@ -40,171 +40,229 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/voxora-mark.svg',
-                              width: 38,
-                              height: 38,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              scheme.primary.withValues(alpha: 0.14),
+              Theme.of(context).scaffoldBackgroundColor,
+              VoxoraColors.teal.withValues(alpha: 0.12),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.70),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 28,
+                        offset: const Offset(0, 18),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              SvgPicture.asset(
+                                'assets/voxora-mark.svg',
+                                width: 38,
+                                height: 38,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Voxora',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge,
+                                    ),
+                                    Text(
+                                      'post, chat, call, play',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: const [
+                              _AuthPill(
+                                icon: Icons.bolt_outlined,
+                                label: 'Live',
+                              ),
+                              _AuthPill(
+                                icon: Icons.group_outlined,
+                                label: 'Squads',
+                              ),
+                              _AuthPill(
+                                icon: Icons.sports_esports_outlined,
+                                label: 'Games',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.login),
+                                label: Text('Log in'),
+                              ),
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.person_add_alt_1),
+                                label: Text('Sign up'),
+                              ),
+                            ],
+                            selected: {_login},
+                            onSelectionChanged: (value) => setState(() {
+                              _login = value.first;
+                              _error = '';
+                            }),
+                          ),
+                          const SizedBox(height: 18),
+                          if (!_login) ...[
+                            _field(
+                              _name,
+                              'Display name',
+                              Icons.person_outline,
+                              validator: _minTwo,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Voxora',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                  Text(
-                                    'Friends, posts, chat, calls, and games',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                ],
+                            const SizedBox(height: 12),
+                            _field(
+                              _handle,
+                              'Handle',
+                              Icons.alternate_email,
+                              validator: _handleRule,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          _field(
+                            _email,
+                            'Email',
+                            Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (value) => (value ?? '').contains('@')
+                                ? null
+                                : 'Enter a valid email.',
+                          ),
+                          const SizedBox(height: 12),
+                          _field(
+                            _password,
+                            'Password',
+                            Icons.lock_outline,
+                            obscureText: !_showPassword,
+                            suffix: IconButton(
+                              tooltip: _showPassword
+                                  ? 'Hide password'
+                                  : 'Show password',
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _showPassword = !_showPassword,
+                              ),
+                            ),
+                            validator: (value) {
+                              final password = value ?? '';
+                              if (_login) {
+                                return password.isEmpty
+                                    ? 'Enter your password.'
+                                    : null;
+                              }
+                              final strong = RegExp(
+                                r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$',
+                              );
+                              return strong.hasMatch(password)
+                                  ? null
+                                  : 'Use 10+ chars with upper, lower, number, and symbol.';
+                            },
+                          ),
+                          if (!_login) ...[
+                            const SizedBox(height: 12),
+                            _field(
+                              _bio,
+                              'Bio',
+                              Icons.info_outline,
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 12),
+                            _field(
+                              _interests,
+                              'Interests',
+                              Icons.interests_outlined,
+                            ),
+                          ],
+                          if (_error.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: VoxoraColors.rose.withValues(
+                                  alpha: 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _error,
+                                style: const TextStyle(
+                                  color: VoxoraColors.rose,
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 24),
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(
-                              value: true,
-                              icon: Icon(Icons.login),
-                              label: Text('Log in'),
-                            ),
-                            ButtonSegment(
-                              value: false,
-                              icon: Icon(Icons.person_add_alt_1),
-                              label: Text('Sign up'),
-                            ),
-                          ],
-                          selected: {_login},
-                          onSelectionChanged: (value) => setState(() {
-                            _login = value.first;
-                            _error = '';
-                          }),
-                        ),
-                        const SizedBox(height: 18),
-                        if (!_login) ...[
-                          _field(
-                            _name,
-                            'Display name',
-                            Icons.person_outline,
-                            validator: _minTwo,
-                          ),
-                          const SizedBox(height: 12),
-                          _field(
-                            _handle,
-                            'Handle',
-                            Icons.alternate_email,
-                            validator: _handleRule,
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        _field(
-                          _email,
-                          'Email',
-                          Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) => (value ?? '').contains('@')
-                              ? null
-                              : 'Enter a valid email.',
-                        ),
-                        const SizedBox(height: 12),
-                        _field(
-                          _password,
-                          'Password',
-                          Icons.lock_outline,
-                          obscureText: !_showPassword,
-                          suffix: IconButton(
-                            tooltip: _showPassword
-                                ? 'Hide password'
-                                : 'Show password',
-                            icon: Icon(
-                              _showPassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () =>
-                                setState(() => _showPassword = !_showPassword),
-                          ),
-                          validator: (value) {
-                            final password = value ?? '';
-                            if (_login) {
-                              return password.isEmpty
-                                  ? 'Enter your password.'
-                                  : null;
-                            }
-                            final strong = RegExp(
-                              r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$',
-                            );
-                            return strong.hasMatch(password)
-                                ? null
-                                : 'Use 10+ chars with upper, lower, number, and symbol.';
-                          },
-                        ),
-                        if (!_login) ...[
-                          const SizedBox(height: 12),
-                          _field(_bio, 'Bio', Icons.info_outline, maxLines: 3),
-                          const SizedBox(height: 12),
-                          _field(
-                            _interests,
-                            'Interests',
-                            Icons.interests_outlined,
-                          ),
-                        ],
-                        if (_error.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: VoxoraColors.rose.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _error,
-                              style: const TextStyle(color: VoxoraColors.rose),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                        FilledButton.icon(
-                          onPressed: _busy ? null : _submit,
-                          icon: _busy
-                              ? SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: scheme.onPrimary,
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: _busy ? null : _submit,
+                            icon: _busy
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: scheme.onPrimary,
+                                    ),
+                                  )
+                                : Icon(
+                                    _login
+                                        ? Icons.login
+                                        : Icons.person_add_alt_1,
                                   ),
-                                )
-                              : Icon(
-                                  _login ? Icons.login : Icons.person_add_alt_1,
-                                ),
-                          label: Text(_login ? 'Log in' : 'Create account'),
-                        ),
-                      ],
+                            label: Text(_login ? 'Log in' : 'Create account'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -274,5 +332,40 @@ class _AuthScreenState extends State<AuthScreen> {
       _busy = false;
       _error = error ?? '';
     });
+  }
+}
+
+class _AuthPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _AuthPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: scheme.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

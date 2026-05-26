@@ -25,6 +25,10 @@ class _FeedViewState extends State<FeedView> {
         constraints: const BoxConstraints(maxWidth: 820),
         child: Column(
           children: [
+            _ComposerPrompt(app: app),
+            const SizedBox(height: 14),
+            _StoryRail(app: app),
+            const SizedBox(height: 14),
             if (app.posts.isEmpty)
               const EmptyState(
                 icon: Icons.photo_library_outlined,
@@ -39,6 +43,163 @@ class _FeedViewState extends State<FeedView> {
                   child: _PostCard(post: post),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerPrompt extends StatelessWidget {
+  final AppProvider app;
+
+  const _ComposerPrompt({required this.app});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      gradient: LinearGradient(
+        colors: [
+          scheme.primary.withValues(alpha: 0.14),
+          VoxoraColors.teal.withValues(alpha: 0.10),
+          scheme.surface.withValues(alpha: 0.94),
+        ],
+      ),
+      child: Row(
+        children: [
+          UserAvatar(
+            url: app.profile?.avatarUrl,
+            size: 48,
+            online: app.profile?.status == 'online',
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+              ),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: 0.84),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+                child: Text(
+                  'Drop a moment...',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filled(
+            tooltip: 'Post',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+            ),
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryRail extends StatelessWidget {
+  final AppProvider app;
+
+  const _StoryRail({required this.app});
+
+  @override
+  Widget build(BuildContext context) {
+    final people = <Profile>[
+      if (app.profile != null) app.profile!,
+      ...app.friends,
+      ...app.profiles.where(
+        (person) =>
+            person.id != app.profile?.id &&
+            !app.friends.any((friend) => friend.id == person.id),
+      ),
+    ].take(12).toList();
+    if (people.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 112,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final person = people[index];
+          return _StoryBubble(
+            person: person,
+            mine: person.id == app.profile?.id,
+            onTap: () => app.viewProfile(person.id),
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemCount: people.length,
+      ),
+    );
+  }
+}
+
+class _StoryBubble extends StatelessWidget {
+  final Profile person;
+  final bool mine;
+  final VoidCallback onTap;
+
+  const _StoryBubble({
+    required this.person,
+    required this.mine,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 92,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: scheme.surface.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: mine
+                ? scheme.primary.withValues(alpha: 0.32)
+                : scheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            UserAvatar(
+              url: person.avatarUrl,
+              size: 52,
+              online: person.status == 'online',
+            ),
+            const SizedBox(height: 7),
+            Text(
+              mine ? 'You' : person.fullName.split(' ').first,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+            ),
+            Text(
+              '@${person.handle}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
       ),
@@ -87,13 +248,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget _composer(AppProvider app) {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
+      gradient: LinearGradient(
+        colors: [
+          scheme.surface,
+          scheme.primary.withValues(alpha: 0.07),
+          VoxoraColors.teal.withValues(alpha: 0.06),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
             icon: Icons.add_photo_alternate_outlined,
-            title: 'Add post',
-            subtitle: 'Upload a picture and caption.',
+            title: 'New drop',
+            subtitle: 'Share a photo with your circle.',
           ),
           TextField(
             controller: _caption,
@@ -111,6 +279,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.55),
+                ),
               ),
               clipBehavior: Clip.antiAlias,
               child: Image.memory(_imageBytes!, fit: BoxFit.contain),
@@ -123,7 +294,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 height: 150,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  border: Border.all(color: scheme.outlineVariant),
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.08),
+                      VoxoraColors.teal.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.14),
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -228,11 +407,20 @@ class _PostCardState extends State<_PostCard> {
 
     return AppCard(
       padding: EdgeInsets.zero,
+      borderColor: scheme.primary.withValues(alpha: 0.10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [scheme.primary, VoxoraColors.teal, VoxoraColors.amber],
+              ),
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
             child: Row(
               children: [
                 InkWell(
@@ -256,11 +444,27 @@ class _PostCardState extends State<_PostCard> {
                       children: [
                         Text(
                           author?.fullName ?? 'Member',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
                         ),
-                        Text(
-                          '@${author?.handle ?? 'member'}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '@${author?.handle ?? 'member'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _timeAgo(post.createdAt),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -284,17 +488,32 @@ class _PostCardState extends State<_PostCard> {
           if (post.caption.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Text(post.caption),
+              child: Text(
+                post.caption,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.42),
+              ),
             ),
           if (post.imageUrl != null)
-            Container(
-              width: double.infinity,
-              color: scheme.surfaceContainerHighest,
-              constraints: const BoxConstraints(maxHeight: 620),
-              child: Image.network(
-                post.imageUrl!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox(height: 180),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                constraints: const BoxConstraints(maxHeight: 620),
+                child: Image.network(
+                  post.imageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox(height: 180),
+                ),
               ),
             ),
           if (shared != null)
@@ -397,6 +616,20 @@ class _PostCardState extends State<_PostCard> {
     );
     controller.dispose();
     if (result != null) await app.editPost(post, result);
+  }
+
+  String _timeAgo(String raw) {
+    try {
+      final created = DateTime.parse(raw).toLocal();
+      final diff = DateTime.now().difference(created);
+      if (diff.inMinutes < 1) return 'now';
+      if (diff.inHours < 1) return '${diff.inMinutes}m';
+      if (diff.inDays < 1) return '${diff.inHours}h';
+      if (diff.inDays < 7) return '${diff.inDays}d';
+      return '${created.month}/${created.day}';
+    } catch (_) {
+      return '';
+    }
   }
 }
 

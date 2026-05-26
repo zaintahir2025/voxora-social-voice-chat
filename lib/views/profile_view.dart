@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
@@ -79,17 +80,39 @@ class _ProfileViewState extends State<ProfileView> {
           Container(
             height: 210,
             width: double.infinity,
-            decoration: BoxDecoration(color: scheme.surfaceContainerHighest),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  scheme.primary.withValues(alpha: 0.22),
+                  VoxoraColors.teal.withValues(alpha: 0.18),
+                  VoxoraColors.amber.withValues(alpha: 0.12),
+                ],
+              ),
+            ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 if (person.coverUrl == null || person.coverUrl!.isEmpty)
-                  Center(
-                    child: Icon(
-                      Icons.landscape_outlined,
-                      color: scheme.primary,
-                      size: 42,
+                  Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surface.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.auto_awesome_outlined,
+                        color: scheme.primary,
+                        size: 34,
+                      ),
                     ),
                   )
                 else

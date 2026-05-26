@@ -6,19 +6,43 @@ class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
+  final Gradient? gradient;
+  final Color? borderColor;
 
   const AppCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(18),
     this.color,
+    this.gradient,
+    this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: color,
-      margin: EdgeInsets.zero,
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: gradient == null ? color ?? scheme.surface : null,
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color:
+              borderColor ??
+              (dark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.74)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.22 : 0.07),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(padding: padding, child: child),
     );
   }
@@ -50,17 +74,31 @@ class SectionHeader extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.12),
+              gradient: LinearGradient(
+                colors: [scheme.primary, VoxoraColors.teal],
+              ),
               borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.20),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: Icon(icon, color: scheme.primary, size: 20),
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(height: 1.05),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
@@ -85,36 +123,47 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final avatar = ClipOval(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: url == null || url!.isEmpty
-            ? DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      scheme.primary.withValues(alpha: 0.18),
-                      VoxoraColors.teal.withValues(alpha: 0.18),
-                    ],
-                  ),
-                ),
-                child: Icon(
-                  Icons.person,
-                  color: scheme.primary,
-                  size: size * 0.5,
-                ),
-              )
-            : Image.network(
-                url!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => DecoratedBox(
+    final avatar = Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all((size * 0.045).clamp(1.5, 3.0)),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [VoxoraColors.brand, VoxoraColors.teal, VoxoraColors.amber],
+        ),
+      ),
+      child: ClipOval(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: url == null || url!.isEmpty
+              ? DecoratedBox(
                   decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
+                    gradient: LinearGradient(
+                      colors: [
+                        scheme.primary.withValues(alpha: 0.22),
+                        VoxoraColors.teal.withValues(alpha: 0.18),
+                      ],
+                    ),
                   ),
-                  child: Icon(Icons.person, color: scheme.primary),
+                  child: Icon(
+                    Icons.person,
+                    color: scheme.primary,
+                    size: size * 0.5,
+                  ),
+                )
+              : Image.network(
+                  url!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                    ),
+                    child: Icon(Icons.person, color: scheme.primary),
+                  ),
                 ),
-              ),
+        ),
       ),
     );
 
@@ -132,7 +181,13 @@ class UserAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               color: VoxoraColors.green,
               shape: BoxShape.circle,
-              border: Border.all(color: scheme.surface, width: 2),
+              border: Border.all(color: scheme.surface, width: 2.2),
+              boxShadow: [
+                BoxShadow(
+                  color: VoxoraColors.green.withValues(alpha: 0.45),
+                  blurRadius: 8,
+                ),
+              ],
             ),
           ),
         ),
@@ -204,10 +259,12 @@ class EmptyState extends StatelessWidget {
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.10),
+                    gradient: LinearGradient(
+                      colors: [scheme.primary, VoxoraColors.teal],
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: scheme.primary, size: 28),
+                  child: Icon(icon, color: Colors.white, size: 28),
                 ),
                 const SizedBox(height: 14),
                 Text(
@@ -257,13 +314,26 @@ class MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(13, 10, 13, 8),
         decoration: BoxDecoration(
-          color: mine ? scheme.primary : scheme.surfaceContainerHighest,
+          gradient: mine
+              ? LinearGradient(colors: [scheme.primary, VoxoraColors.teal])
+              : null,
+          color: mine ? null : scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(8),
             topRight: const Radius.circular(8),
             bottomLeft: Radius.circular(mine ? 8 : 2),
             bottomRight: Radius.circular(mine ? 2 : 8),
           ),
+          border: mine
+              ? null
+              : Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,12 +418,14 @@ class CountChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effective = color ?? Theme.of(context).colorScheme.primary;
+    final scheme = Theme.of(context).colorScheme;
+    final effective = color ?? scheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: effective.withValues(alpha: 0.10),
+        color: effective.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: effective.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -363,7 +435,10 @@ class CountChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: effective,
+              color: Color.alphaBlend(
+                effective.withValues(alpha: 0.18),
+                scheme.onSurface,
+              ),
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),
@@ -418,9 +493,15 @@ class ActionIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
       child: IconButton(
+        style: IconButton.styleFrom(
+          backgroundColor: (color ?? scheme.primary).withValues(alpha: 0.09),
+          foregroundColor: color ?? scheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
         icon: Icon(icon, color: color),
         onPressed: onPressed,
       ),

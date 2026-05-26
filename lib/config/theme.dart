@@ -2,26 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
-  static const brand = Color(0xFF2563EB);
-  static const brandDark = Color(0xFF60A5FA);
-  static const teal = Color(0xFF0F766E);
-  static const orange = Color(0xFFF97316);
+  static const brand = Color(0xFFFF3D6E);
+  static const brandDark = Color(0xFFFF7AA2);
+  static const electric = Color(0xFF2563EB);
+  static const teal = Color(0xFF06B6D4);
+  static const orange = Color(0xFFFF8A3D);
   static const rose = Color(0xFFE11D48);
-  static const green = Color(0xFF16A34A);
-  static const amber = Color(0xFFEAB308);
-  static const ink = Color(0xFF111827);
-  static const slate = Color(0xFF4B5563);
-  static const line = Color(0xFFE5E7EB);
-  static const darkBg = Color(0xFF101418);
-  static const darkSurface = Color(0xFF171C22);
-  static const darkLine = Color(0xFF2A333D);
+  static const green = Color(0xFF22C55E);
+  static const amber = Color(0xFFFACC15);
+  static const violet = Color(0xFF7C3AED);
+  static const ink = Color(0xFF101322);
+  static const slate = Color(0xFF64748B);
+  static const line = Color(0xFFE7EAF3);
+  static const softBg = Color(0xFFF6F7FB);
+  static const darkBg = Color(0xFF0D111A);
+  static const darkSurface = Color(0xFF161B27);
+  static const darkLine = Color(0xFF2A3242);
 }
 
 class VoxoraTheme {
   static ThemeData light() => _theme(
     brightness: Brightness.light,
     seed: VoxoraColors.brand,
-    scaffold: const Color(0xFFF7F8FA),
+    scaffold: VoxoraColors.softBg,
     surface: Colors.white,
     onSurface: VoxoraColors.ink,
     outline: VoxoraColors.line,
@@ -52,8 +55,9 @@ class VoxoraTheme {
       tertiary: VoxoraColors.orange,
       error: VoxoraColors.rose,
       surface: surface,
+      surfaceTint: seed,
     );
-    final textTheme = GoogleFonts.interTextTheme(
+    final textTheme = GoogleFonts.plusJakartaSansTextTheme(
       brightness == Brightness.dark
           ? ThemeData.dark().textTheme
           : ThemeData.light().textTheme,
@@ -65,38 +69,38 @@ class VoxoraTheme {
       scaffoldBackgroundColor: scaffold,
       colorScheme: scheme,
       textTheme: textTheme.copyWith(
-        headlineMedium: GoogleFonts.inter(
+        headlineMedium: GoogleFonts.plusJakartaSans(
           fontSize: 28,
           height: 1.15,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
           letterSpacing: 0,
           color: onSurface,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: GoogleFonts.plusJakartaSans(
           fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+          color: onSurface,
+        ),
+        titleMedium: GoogleFonts.plusJakartaSans(
+          fontSize: 16,
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
           color: onSurface,
         ),
-        titleMedium: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-          color: onSurface,
-        ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           height: 1.45,
           letterSpacing: 0,
           color: onSurface.withValues(alpha: 0.84),
         ),
-        bodySmall: GoogleFonts.inter(
+        bodySmall: GoogleFonts.plusJakartaSans(
           fontSize: 12,
           height: 1.35,
           letterSpacing: 0,
           color: onSurface.withValues(alpha: 0.62),
         ),
-        labelLarge: GoogleFonts.inter(
+        labelLarge: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -114,19 +118,19 @@ class VoxoraTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: brightness == Brightness.dark
-            ? Colors.white.withValues(alpha: 0.04)
-            : Colors.white,
+            ? Colors.white.withValues(alpha: 0.055)
+            : const Color(0xFFFBFCFF),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 13,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: outline),
+          borderSide: BorderSide(color: outline.withValues(alpha: 0.82)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: outline),
+          borderSide: BorderSide(color: outline.withValues(alpha: 0.82)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -138,7 +142,7 @@ class VoxoraTheme {
           elevation: 0,
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w800,
             letterSpacing: 0,
@@ -149,8 +153,8 @@ class VoxoraTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 42),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          side: BorderSide(color: outline),
-          textStyle: GoogleFonts.inter(
+          side: BorderSide(color: outline.withValues(alpha: 0.95)),
+          textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             letterSpacing: 0,
@@ -159,6 +163,9 @@ class VoxoraTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
+          backgroundColor: brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.04)
+              : Colors.white.withValues(alpha: 0.72),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
@@ -170,15 +177,33 @@ class VoxoraTheme {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: seed,
         unselectedItemColor: onSurface.withValues(alpha: 0.55),
-        selectedLabelStyle: GoogleFonts.inter(
+        selectedLabelStyle: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
         ),
-        unselectedLabelStyle: GoogleFonts.inter(
+        unselectedLabelStyle: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: seed,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        elevation: 0,
+        backgroundColor: scaffold,
+        foregroundColor: onSurface,
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+          color: onSurface,
         ),
       ),
     );
