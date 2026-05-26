@@ -183,8 +183,9 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final app = context.read<AppProvider>();
+    final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    final unread = item.view == AppView.messages ? app.unreadMessageCount : 0;
     return Tooltip(
       message: item.label,
       child: InkWell(
@@ -201,9 +202,12 @@ class _NavButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                item.icon,
-                color: active ? scheme.primary : scheme.onSurfaceVariant,
+              _UnreadBadge(
+                count: unread,
+                child: Icon(
+                  item.icon,
+                  color: active ? scheme.primary : scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(width: 12),
               Text(
@@ -235,10 +239,64 @@ class _BottomNav extends StatelessWidget {
           app.setView(HomeScreen._items[index].view),
       destinations: HomeScreen._items
           .map(
-            (item) =>
-                NavigationDestination(icon: Icon(item.icon), label: item.label),
+            (item) => NavigationDestination(
+              icon: _UnreadBadge(
+                count: item.view == AppView.messages
+                    ? app.unreadMessageCount
+                    : 0,
+                child: Icon(item.icon),
+              ),
+              selectedIcon: _UnreadBadge(
+                count: item.view == AppView.messages
+                    ? app.unreadMessageCount
+                    : 0,
+                child: Icon(item.icon),
+              ),
+              label: item.label,
+            ),
           )
           .toList(),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  final int count;
+  final Widget child;
+
+  const _UnreadBadge({required this.count, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return child;
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -8,
+          top: -7,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: scheme.error,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: scheme.surface, width: 1.5),
+            ),
+            child: Text(
+              count > 9 ? '9+' : '$count',
+              style: TextStyle(
+                color: scheme.onError,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

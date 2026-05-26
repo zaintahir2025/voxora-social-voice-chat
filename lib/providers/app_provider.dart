@@ -135,6 +135,29 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     return _messages.where((message) => message.conversationId == id).toList();
   }
 
+  int get unreadMessageCount => _unreadMessages().length;
+
+  int unreadCountForConversation(String conversationId) =>
+      _unreadMessages(conversationId).length;
+
+  List<DirectMessage> _unreadMessages([String? conversationId]) {
+    final myId = _profile?.id;
+    if (myId == null) return const [];
+    final readByMe = _messageReads
+        .where((read) => read.userId == myId)
+        .map((read) => read.messageId)
+        .toSet();
+    return _messages
+        .where(
+          (message) =>
+              message.senderId != myId &&
+              !readByMe.contains(message.id) &&
+              (conversationId == null ||
+                  message.conversationId == conversationId),
+        )
+        .toList();
+  }
+
   String readReceiptForMessage(
     DirectMessage message,
     List<Profile> conversationMembers,
@@ -674,7 +697,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (payload.eventType == PostgresChangeEvent.insert) {
       switch (payload.table) {
         case 'messages':
-          _notifyNewMessage(record, userId, payload.commitTimestamp);
           break;
         case 'game_invites':
           _notifyGameInvite(record, userId, payload.commitTimestamp);
@@ -736,33 +758,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _unsubscribeRealtime() {
     unawaited(_realtimeChannel?.unsubscribe() ?? Future<void>.value());
     _realtimeChannel = null;
-  }
-
-  void _notifyNewMessage(
-    Map<String, dynamic> record,
-    String userId,
-    DateTime timestamp,
-  ) {
-    final senderId = record['sender_id'] as String?;
-    final conversationId = record['conversation_id'] as String?;
-    if (senderId == null || senderId == userId || conversationId == null) {
-      return;
-    }
-    if (!_conversations.any((item) => item.conversation.id == conversationId)) {
-      return;
-    }
-
-    final sender = _displayName(senderId);
-    final body = (record['body'] as String? ?? '').trim();
-    _pushNotification(
-      key: 'message:${record['id']}',
-      icon: Icons.chat_bubble_outline,
-      title: 'New message from $sender',
-      body: _compact(body.isEmpty ? 'Sent you a message.' : body),
-      view: AppView.messages,
-      conversationId: conversationId,
-      timestamp: timestamp,
-    );
   }
 
   void _notifyGameInvite(

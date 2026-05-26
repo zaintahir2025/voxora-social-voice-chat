@@ -85,6 +85,9 @@ class _MessagesViewState extends State<MessagesView> {
               final active =
                   app.activeConversation?.conversation.id ==
                   summary.conversation.id;
+              final unread = app.unreadCountForConversation(
+                summary.conversation.id,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
@@ -97,13 +100,24 @@ class _MessagesViewState extends State<MessagesView> {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: unread > 0
+                          ? FontWeight.w900
+                          : FontWeight.w600,
+                    ),
                   ),
                   subtitle: Text(
                     summary.lastMessage?.body ??
                         '${summary.members.length} members',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: unread > 0
+                          ? FontWeight.w700
+                          : FontWeight.normal,
+                    ),
                   ),
+                  trailing: unread > 0 ? _ChatUnreadBadge(count: unread) : null,
                   onTap: () => app.selectConversation(summary.conversation.id),
                 ),
               );
@@ -373,6 +387,34 @@ class _MessagesViewState extends State<MessagesView> {
       context: context,
       barrierDismissible: false,
       builder: (_) => CallDialog(call: call),
+    );
+  }
+}
+
+class _ChatUnreadBadge extends StatelessWidget {
+  final int count;
+
+  const _ChatUnreadBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.error,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: TextStyle(
+          color: scheme.onError,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
