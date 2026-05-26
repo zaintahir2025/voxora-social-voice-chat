@@ -1,1174 +1,1279 @@
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:chess/chess.dart' as chess_lib;
 import '../config/constants.dart';
 import '../config/theme.dart';
-
+import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../providers/bot_game_provider.dart';
 import '../widgets/common_widgets.dart';
 
 class GamesView extends StatefulWidget {
   const GamesView({super.key});
+
   @override
   State<GamesView> createState() => _GamesViewState();
 }
 
 class _GamesViewState extends State<GamesView> {
-  String _roomId = '';
-  String _selectedGameId = '';
-  bool _vsBot = false;
+  final _joinCode = TextEditingController();
+  String? _selectedBotId;
+
+  @override
+  void dispose() {
+    _joinCode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    final botApp = context.watch<BotGameProvider>();
-    if (_roomId.isEmpty && app.activeRoom != null) _roomId = app.activeRoom!.id;
-    final roomGames = app.gameSessions
-        .where((g) => g.roomId == _roomId && g.isActive)
-        .toList();
-    final botGames = botApp.games;
+    final bot = context.watch<BotGameProvider>();
+    final wide = MediaQuery.of(context).size.width >= 980;
+    final selectedBot = _selectedBotId == null
+        ? null
+        : bot.games.where((game) => game.id == _selectedBotId).firstOrNull;
 
-    final selectedRoomGame =
-        roomGames.where((g) => g.id == _selectedGameId).firstOrNull ??
-        roomGames.firstOrNull;
-    final selectedBotGame = botApp.selectedGame;
-    final selectedGame = _vsBot ? selectedBotGame : selectedRoomGame;
+    final sidebar = _sidebar(app, bot);
+    final board = selectedBot != null
+        ? _GameStage.bot(game: selectedBot)
+        : _GameStage.friend(game: app.activeGame);
 
-    final joined = app.participants.any(
-      (p) => p.roomId == _roomId && p.userId == app.profile?.id,
-    );
-    final isWide = MediaQuery.of(context).size.width > 900;
-
-    final sidebar = VPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const VSectionTitle(
-            icon: Icons.sports_esports_outlined,
-            title: 'Games',
-          ),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              border: Border.all(color: VoxoraColors.line),
-              borderRadius: BorderRadius.circular(12),
-              color: VoxoraColors.surfaceLight,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _vsBot = false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: !_vsBot
-                            ? VoxoraColors.primary.withValues(alpha: 0.15)
-                            : null,
-                      ),
-                      child: Text(
-                        'Multiplayer',
-                        style: TextStyle(
-                          color: !_vsBot
-                              ? VoxoraColors.primary
-                              : VoxoraColors.muted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _vsBot = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: _vsBot
-                            ? VoxoraColors.lime.withValues(alpha: 0.15)
-                            : null,
-                      ),
-                      child: Text(
-                        'vs Bot',
-                        style: TextStyle(
-                          color: _vsBot
-                              ? VoxoraColors.lime
-                              : VoxoraColors.muted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (!_vsBot) ...[
-            DropdownButtonFormField<String>(
-              initialValue: app.liveRooms.any((r) => r.id == _roomId)
-                  ? _roomId
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Select Room',
-                prefixIcon: Icon(
-                  Icons.radio,
-                  size: 18,
-                  color: VoxoraColors.muted,
-                ),
-              ),
-              dropdownColor: VoxoraColors.surface,
-              style: const TextStyle(color: VoxoraColors.text),
-              items: app.liveRooms
-                  .map(
-                    (r) => DropdownMenuItem(value: r.id, child: Text(r.title)),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _roomId = v ?? ''),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text('NEW GAME', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 10),
-          ...['chess', 'ludo', 'cards'].map(
-            (g) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _GameTypeCard(
-                type: g,
-                enabled: _vsBot || (joined && _roomId.isNotEmpty),
-                onTap: () {
-                  if (_vsBot) {
-                    if (g == 'chess') {
-                      botApp.createChessGame();
-                    } else if (g == 'ludo') {
-                      botApp.createLudoGame();
-                    } else if (g == 'cards') {
-                      botApp.createCardsGame();
-                    }
-                  } else {
-                    app.createGame(_roomId, g);
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_vsBot ? botGames.isNotEmpty : roomGames.isNotEmpty) ...[
-            Text('ACTIVE GAMES', style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 10),
-            ...(_vsBot ? botGames : roomGames).map((dynamic g) {
-              final isBot = g is BotGame;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: VListRow(
-                  isActive: isBot
-                      ? botApp.selectedGameId == g.id
-                      : selectedRoomGame?.id == g.id,
-                  onTap: () {
-                    if (isBot) {
-                      botApp.selectGame(g.id);
-                    } else {
-                      setState(() => _selectedGameId = g.id);
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      Icon(
-                        _gameIcon(g.gameType),
-                        size: 18,
-                        color: VoxoraColors.lime,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isBot
-                                  ? '${g.gameType.toUpperCase()} vs Bot'
-                                  : g.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: VoxoraColors.text,
-                              ),
-                            ),
-                            Text(
-                              '${g.gameType} · ${_fmtTime(g.createdAt.toString())}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isBot)
-                        GestureDetector(
-                          onTap: () => botApp.deleteGame(g.id),
-                          child: const Icon(
-                            Icons.close,
-                            size: 16,
-                            color: VoxoraColors.muted,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ] else
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'No active games.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-        ],
-      ),
-    );
-
-    final stage = selectedGame != null
-        ? VPanel(
-            child: _GameBoard(game: selectedGame, isBot: _vsBot),
-          )
-        : VPanel(
-            child: const VEmptyState(
-              icon: Icons.sports_esports_outlined,
-              title: 'No game selected',
-              body: 'Start a new game or select an active one.',
-            ),
-          );
-
-    if (isWide) {
+    if (wide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: 360, child: sidebar),
-          const SizedBox(width: 18),
-          Expanded(child: stage),
+          const SizedBox(width: 14),
+          Expanded(child: board),
         ],
       );
     }
-    return Column(children: [sidebar, const SizedBox(height: 18), stage]);
+    return Column(children: [sidebar, const SizedBox(height: 14), board]);
   }
 
-  IconData _gameIcon(String t) =>
-      {'chess': Icons.grid_on, 'ludo': Icons.casino, 'cards': Icons.style}[t] ??
-      Icons.sports_esports;
-  String _fmtTime(String iso) {
-    try {
-      final d = DateTime.parse(iso);
-      return '${d.hour}:${d.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
+  Widget _sidebar(AppProvider app, BotGameProvider bot) {
+    return Column(
+      children: [
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionHeader(
+                icon: Icons.sports_esports_outlined,
+                title: 'Gaming pages',
+                subtitle: 'Start with friends or computer.',
+              ),
+              ...['chess', 'ludo', 'cards'].map(
+                (type) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _GameStartTile(
+                    type: type,
+                    onTap: () => _startGame(type),
+                  ),
+                ),
+              ),
+              const Divider(height: 24),
+              TextField(
+                controller: _joinCode,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Join friend game code',
+                  prefixIcon: Icon(Icons.key_outlined),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => app.joinGameByCode(_joinCode.text),
+                  icon: const Icon(Icons.login),
+                  label: const Text('Join game'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionHeader(
+                icon: Icons.group_outlined,
+                title: 'Friend games',
+              ),
+              if (app.gameSessions.isEmpty)
+                Text(
+                  'No friend games yet.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else
+                ...app.gameSessions.map((game) {
+                  final players = app.playersForGame(game.id);
+                  return ListTile(
+                    selected:
+                        app.activeGame?.id == game.id && _selectedBotId == null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    leading: Icon(_gameIcon(game.gameType)),
+                    title: Text(
+                      '${gameTitles[game.gameType]} - ${game.status}',
+                    ),
+                    subtitle: Text(
+                      'Code ${game.inviteCode} - ${players.length}/${game.maxPlayers} players',
+                    ),
+                    onTap: () {
+                      setState(() => _selectedBotId = null);
+                      app.selectGame(game.id);
+                    },
+                  );
+                }),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionHeader(
+                icon: Icons.smart_toy_outlined,
+                title: 'Computer games',
+              ),
+              if (bot.games.isEmpty)
+                Text(
+                  'Computer games stay on this device.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else
+                ...bot.games.map((game) {
+                  return ListTile(
+                    selected: _selectedBotId == game.id,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    leading: Icon(_gameIcon(game.gameType)),
+                    title: Text('${gameTitles[game.gameType]} vs computer'),
+                    subtitle: Text(
+                      game.result ??
+                          (game.isActive ? 'In progress' : 'Finished'),
+                    ),
+                    trailing: IconButton(
+                      tooltip: 'Delete game',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => bot.deleteGame(game.id),
+                    ),
+                    onTap: () {
+                      bot.selectGame(game.id);
+                      setState(() => _selectedBotId = game.id);
+                    },
+                  );
+                }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _startGame(String type) async {
+    final app = context.read<AppProvider>();
+    final bot = context.read<BotGameProvider>();
+    final setup = await showDialog<_GameSetup>(
+      context: context,
+      builder: (_) => _GameSetupDialog(type: type),
+    );
+    if (setup == null) return;
+
+    if (setup.mode == _GameMode.computer) {
+      if (type == 'chess') {
+        bot.createChessGame(playAsWhite: setup.playAsWhite);
+      } else if (type == 'ludo') {
+        bot.createLudoGame(playerCount: setup.playerCount);
+      } else {
+        bot.createCardsGame(playerCount: setup.playerCount);
+      }
+      setState(() => _selectedBotId = bot.selectedGameId);
+      return;
     }
+
+    await app.createFriendGame(
+      type,
+      maxPlayers: setup.playerCount,
+      inviteUserIds: setup.inviteUserIds,
+    );
+    setState(() => _selectedBotId = null);
+  }
+
+  IconData _gameIcon(String type) {
+    return switch (type) {
+      'chess' => Icons.grid_on_outlined,
+      'ludo' => Icons.casino_outlined,
+      'cards' => Icons.style_outlined,
+      _ => Icons.sports_esports_outlined,
+    };
   }
 }
 
-class _GameTypeCard extends StatefulWidget {
+class _GameStartTile extends StatelessWidget {
   final String type;
-  final bool enabled;
   final VoidCallback onTap;
-  const _GameTypeCard({
-    required this.type,
-    required this.enabled,
-    required this.onTap,
-  });
-  @override
-  State<_GameTypeCard> createState() => _GameTypeCardState();
-}
 
-class _GameTypeCardState extends State<_GameTypeCard> {
-  bool _hovered = false;
+  const _GameStartTile({required this.type, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final info = {
-      'chess': (
-        'Chess',
-        'Classic strategy • 2 players',
-        Icons.grid_on,
-        VoxoraColors.lime,
-      ),
-      'ludo': (
-        'Ludo',
-        'Race to home • 2-4 players',
-        Icons.casino,
-        VoxoraColors.primary,
-      ),
-      'cards': (
-        'Cards',
-        'Quick rounds • 2+ players',
-        Icons.style,
-        VoxoraColors.cyan,
-      ),
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (type) {
+      'chess' => scheme.primary,
+      'ludo' => VoxoraColors.green,
+      'cards' => VoxoraColors.orange,
+      _ => scheme.primary,
     };
-    final data = info[widget.type]!;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.enabled ? widget.onTap : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: _hovered && widget.enabled
-                  ? data.$4.withValues(alpha: 0.5)
-                  : VoxoraColors.line,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              type == 'chess'
+                  ? Icons.grid_on_outlined
+                  : type == 'ludo'
+                  ? Icons.casino_outlined
+                  : Icons.style_outlined,
+              color: color,
             ),
-            borderRadius: BorderRadius.circular(12),
-            color: _hovered && widget.enabled
-                ? data.$4.withValues(alpha: 0.08)
-                : VoxoraColors.surfaceLight,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: data.$4.withValues(alpha: 0.15),
-                ),
-                child: Icon(data.$3, size: 20, color: data.$4),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    gameTitles[type]!,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    _subtitle(type),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.$1,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: VoxoraColors.text,
-                      ),
-                    ),
-                    Text(data.$2, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              if (widget.enabled)
-                Icon(Icons.add_circle_outline, size: 18, color: data.$4),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
         ),
       ),
     );
   }
-}
 
-class _GameBoard extends StatefulWidget {
-  final dynamic game; // GameSession or BotGame
-  final bool isBot;
-  const _GameBoard({required this.game, required this.isBot});
-  @override
-  State<_GameBoard> createState() => _GameBoardState();
-}
-
-class _GameBoardState extends State<_GameBoard> {
-  String? _selectedSquare;
-
-  @override
-  void didUpdateWidget(covariant _GameBoard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.game.id != widget.game.id) {
-      _selectedSquare = null;
-    }
+  String _subtitle(String type) {
+    return switch (type) {
+      'chess' => '2 players - legal move guide',
+      'ludo' => '2-4 players - colored board and dice',
+      'cards' => '2-4 players - high card rounds',
+      _ => '',
+    };
   }
+}
+
+enum _GameMode { computer, friends }
+
+class _GameSetup {
+  final _GameMode mode;
+  final int playerCount;
+  final bool playAsWhite;
+  final List<String> inviteUserIds;
+
+  const _GameSetup({
+    required this.mode,
+    required this.playerCount,
+    required this.playAsWhite,
+    required this.inviteUserIds,
+  });
+}
+
+class _GameSetupDialog extends StatefulWidget {
+  final String type;
+
+  const _GameSetupDialog({required this.type});
+
+  @override
+  State<_GameSetupDialog> createState() => _GameSetupDialogState();
+}
+
+class _GameSetupDialogState extends State<_GameSetupDialog> {
+  _GameMode _mode = _GameMode.computer;
+  int _players = 2;
+  bool _playAsWhite = true;
+  final Set<String> _invites = {};
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    final botApp = context.watch<BotGameProvider>();
-    final title = widget.isBot
-        ? '${widget.game.gameType.toUpperCase()} vs Bot'
-        : widget.game.title;
+    final needsCount = widget.type != 'chess';
+    return AlertDialog(
+      title: Text('Start ${gameTitles[widget.type]}'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SegmentedButton<_GameMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _GameMode.computer,
+                    icon: Icon(Icons.smart_toy_outlined),
+                    label: Text('Computer'),
+                  ),
+                  ButtonSegment(
+                    value: _GameMode.friends,
+                    icon: Icon(Icons.people_outline),
+                    label: Text('Friends'),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (value) =>
+                    setState(() => _mode = value.first),
+              ),
+              if (widget.type == 'chess') ...[
+                const SizedBox(height: 14),
+                SwitchListTile(
+                  value: _playAsWhite,
+                  title: const Text('Play as white'),
+                  secondary: const Icon(Icons.circle_outlined),
+                  onChanged: _mode == _GameMode.computer
+                      ? (value) => setState(() => _playAsWhite = value)
+                      : null,
+                ),
+              ],
+              if (needsCount) ...[
+                const SizedBox(height: 14),
+                Text('Players', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 2, label: Text('2')),
+                    ButtonSegment(value: 3, label: Text('3')),
+                    ButtonSegment(value: 4, label: Text('4')),
+                  ],
+                  selected: {_players},
+                  onSelectionChanged: (value) =>
+                      setState(() => _players = value.first),
+                ),
+              ],
+              if (_mode == _GameMode.friends) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Invite friends',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (app.friends.isEmpty)
+                  Text(
+                    'You can still share the generated game code.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else
+                  ...app.friends.map(
+                    (friend) => CheckboxListTile(
+                      value: _invites.contains(friend.id),
+                      title: Text(friend.fullName),
+                      subtitle: Text('@${friend.handle}'),
+                      secondary: UserAvatar(url: friend.avatarUrl),
+                      onChanged: (value) {
+                        setState(() {
+                          if (value ?? false) {
+                            _invites.add(friend.id);
+                          } else {
+                            _invites.remove(friend.id);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('Start'),
+          onPressed: () => Navigator.pop(
+            context,
+            _GameSetup(
+              mode: _mode,
+              playerCount: widget.type == 'chess' ? 2 : _players,
+              playAsWhite: _playAsWhite,
+              inviteUserIds: _invites.toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GameStage extends StatelessWidget {
+  final GameSession? friendGame;
+  final BotGame? botGame;
+
+  const _GameStage.friend({required GameSession? game})
+    : friendGame = game,
+      botGame = null;
+
+  const _GameStage.bot({required BotGame game})
+    : botGame = game,
+      friendGame = null;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameType = botGame?.gameType ?? friendGame?.gameType;
+    if (gameType == null) {
+      return const EmptyState(
+        icon: Icons.sports_esports_outlined,
+        title: 'No game selected',
+        body: 'Start a game with a computer or friends.',
+      );
+    }
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CountChip(
+                icon: Icons.sports_esports_outlined,
+                label: gameTitles[gameType] ?? gameType,
+              ),
+              const SizedBox(width: 8),
+              CountChip(
+                icon: botGame == null
+                    ? Icons.people_outline
+                    : Icons.smart_toy_outlined,
+                label: botGame == null ? 'Friends' : 'Computer',
+                color: botGame == null
+                    ? VoxoraColors.teal
+                    : VoxoraColors.orange,
+              ),
+              const Spacer(),
+              ActionIconButton(
+                icon: Icons.menu_book_outlined,
+                tooltip: 'Rules and guide',
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => _GuideDialog(type: gameType),
+                ),
+              ),
+              ActionIconButton(
+                icon: Icons.school_outlined,
+                tooltip: 'Tutorial',
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => _TutorialDialog(type: gameType),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (botGame?.result != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: CountChip(
+                icon: Icons.emoji_events_outlined,
+                label: botGame!.result!,
+              ),
+            ),
+          if (friendGame != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SelectableText('Invite code: ${friendGame!.inviteCode}'),
+            ),
+          if (gameType == 'chess')
+            _ChessBoard(friendGame: friendGame, botGame: botGame),
+          if (gameType == 'ludo')
+            _LudoBoard(friendGame: friendGame, botGame: botGame),
+          if (gameType == 'cards')
+            _CardsTable(friendGame: friendGame, botGame: botGame),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChessBoard extends StatefulWidget {
+  final GameSession? friendGame;
+  final BotGame? botGame;
+
+  const _ChessBoard({this.friendGame, this.botGame});
+
+  @override
+  State<_ChessBoard> createState() => _ChessBoardState();
+}
+
+class _ChessBoardState extends State<_ChessBoard> {
+  String? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final bot = context.watch<BotGameProvider>();
+    final state = widget.botGame?.state ?? widget.friendGame!.state;
+    final fen = state['fen'] as String;
+    final board = chess_lib.Chess.fromFEN(fen);
+    final files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    final ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+    final legalTargets = _selected == null
+        ? const <String>{}
+        : board
+              .moves({'square': _selected, 'verbose': true})
+              .whereType<Map>()
+              .map((move) => move['to'].toString())
+              .toSet();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    VStatusBadge(
-                      label: widget.game.gameType.toUpperCase(),
-                      color: VoxoraColors.lime,
-                      icon: Icons.sports_esports,
-                    ),
-                    if (widget.isBot) ...[
-                      const SizedBox(width: 8),
-                      const VStatusBadge(
-                        label: 'OFFLINE',
-                        color: VoxoraColors.muted,
-                        icon: Icons.wifi_off,
-                      ),
-                    ],
-                    if (widget.isBot && widget.game.result != null) ...[
-                      const SizedBox(width: 8),
-                      VStatusBadge(
-                        label: widget.game.result!,
-                        color: widget.game.result!.contains('win')
-                            ? VoxoraColors.success
-                            : VoxoraColors.cyan,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              ],
-            ),
-            if (!widget.isBot)
-              VSecondaryButton(
-                label: 'Join Game',
-                icon: Icons.login,
-                onTap: () => app.joinGame(widget.game),
-              ),
-            if (widget.isBot && botApp.botThinking)
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: VoxoraColors.primary,
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          _chessStatus(board),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 16),
-        const Divider(),
-        const SizedBox(height: 16),
-        if (widget.game.gameType == 'chess') _chessBoard(app, botApp),
-        if (widget.game.gameType == 'ludo') _ludoBoard(app, botApp),
-        if (widget.game.gameType == 'cards') _cardsTable(app, botApp),
-      ],
-    );
-  }
-
-  Widget _chessBoard(AppProvider app, BotGameProvider botApp) {
-    final state = widget.game.state;
-    final fen =
-        state['fen'] as String? ??
-        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    final moves = (state['moves'] as List?)?.cast<String>() ?? [];
-    final players = widget.game.players;
-    final c = chess_lib.Chess.fromFEN(fen);
-
-    String? myColor;
-    if (widget.isBot) {
-      myColor = players['white'] == 'player'
-          ? 'white'
-          : players['black'] == 'player'
-          ? 'black'
-          : null;
-    } else {
-      myColor = players['white'] == app.profile?.id
-          ? 'white'
-          : players['black'] == app.profile?.id
-          ? 'black'
-          : null;
-    }
-
-    final turnColor = c.turn == chess_lib.Color.WHITE ? 'white' : 'black';
-    final status = c.in_checkmate
-        ? '${turnColor == 'white' ? 'Black' : 'White'} wins!'
-        : c.in_draw
-        ? 'Draw'
-        : '$turnColor to move';
-    final files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    final ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-
-    final wName = widget.isBot
-        ? botApp.profileName(players['white'])
-        : app.profileName(players['white']);
-    final bName = widget.isBot
-        ? botApp.profileName(players['black'])
-        : app.profileName(players['black']);
-
-    return Column(
-      children: [
-        _metaRow([
-          _playerTag('White', wName, VoxoraColors.text),
-          const Text(' vs ', style: TextStyle(color: VoxoraColors.muted)),
-          _playerTag('Black', bName, VoxoraColors.muted),
-          const SizedBox(width: 12),
-          VStatusBadge(
-            label: status,
-            color: c.in_checkmate ? VoxoraColors.danger : VoxoraColors.cyan,
-          ),
-        ]),
-        const SizedBox(height: 14),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: VoxoraColors.line, width: 2),
-              ),
-              clipBehavior: Clip.antiAlias,
+        const SizedBox(height: 12),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: AspectRatio(
+              aspectRatio: 1,
               child: GridView.count(
                 crossAxisCount: 8,
-                shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   for (final rank in ranks)
                     for (final file in files)
-                      _chessSquare(
-                        c,
-                        '$file$rank',
-                        myColor,
-                        turnColor,
-                        app,
-                        botApp,
-                        fen,
-                        moves,
-                      ),
+                      _square(app, bot, board, '$file$rank', legalTargets),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(height: 14),
-        if (moves.isNotEmpty)
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: moves.reversed
-                .take(12)
-                .map(
-                  (m) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      color: VoxoraColors.surfaceLight,
-                      border: Border.all(color: VoxoraColors.line),
-                    ),
-                    child: Text(
-                      m,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: VoxoraColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
       ],
     );
   }
 
-  Widget _playerTag(String role, String name, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: role == 'White' ? Colors.white : VoxoraColors.surfaceStrong,
-            border: Border.all(color: VoxoraColors.line),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          name,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: color,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _chessSquare(
-    chess_lib.Chess c,
-    String sq,
-    String? myColor,
-    String turnColor,
+  Widget _square(
     AppProvider app,
-    BotGameProvider botApp,
-    String fen,
-    List<String> moves,
+    BotGameProvider bot,
+    chess_lib.Chess board,
+    String square,
+    Set<String> legalTargets,
   ) {
-    final fileIdx = sq.codeUnitAt(0) - 97;
-    final rankIdx = 8 - int.parse(sq[1]);
-    final isDark = (fileIdx + rankIdx) % 2 == 1;
-    final piece = c.get(sq);
-    final isSelected = _selectedSquare == sq;
-
-    return GestureDetector(
-      onTap: () {
-        if (myColor == null || myColor != turnColor || c.game_over) return;
-        if (widget.isBot && botApp.botThinking) return;
-        if (!widget.isBot && !widget.game.isActive) return;
-
-        if (_selectedSquare == null) {
-          if (piece != null &&
-              piece.color ==
-                  (myColor == 'white'
-                      ? chess_lib.Color.WHITE
-                      : chess_lib.Color.BLACK)) {
-            setState(() => _selectedSquare = sq);
-          }
-          return;
-        }
-        final nc = chess_lib.Chess.fromFEN(fen);
-        final moved = nc.move({
-          'from': _selectedSquare!,
-          'to': sq,
-          'promotion': 'q',
-        });
-        if (moved) {
-          if (widget.isBot) {
-            botApp.makeChessMove(widget.game.id, _selectedSquare!, sq);
-          } else {
-            app.updateGame(widget.game.id, {
-              'state': {
-                'fen': nc.fen,
-                'moves': [...moves, nc.history.last.toString()],
-              },
-              'is_active': !nc.game_over,
-            });
-          }
-        } else if (piece != null &&
-            piece.color ==
-                (myColor == 'white'
-                    ? chess_lib.Color.WHITE
-                    : chess_lib.Color.BLACK)) {
-          setState(() => _selectedSquare = sq);
-          return;
-        }
-        setState(() => _selectedSquare = null);
-      },
+    final piece = board.get(square);
+    final file = square.codeUnitAt(0) - 97;
+    final rank = 8 - int.parse(square[1]);
+    final dark = (file + rank).isOdd;
+    final selected = _selected == square;
+    final legal = legalTargets.contains(square);
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: () => _tapSquare(app, bot, board, square),
       child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? VoxoraColors.lime.withValues(alpha: 0.6)
-              : isDark
-              ? const Color(0xFF3D5A80)
-              : const Color(0xFF1A2332),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          piece != null ? _pieceChar(piece) : '',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: piece != null && piece.color == chess_lib.Color.WHITE
-                ? Colors.white
-                : const Color(0xFFFFD166),
-          ),
+        color: selected
+            ? VoxoraColors.amber
+            : legal
+            ? VoxoraColors.green.withValues(alpha: 0.55)
+            : dark
+            ? const Color(0xFF769656)
+            : const Color(0xFFEEEED2),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (legal)
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: scheme.onSurface.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            Text(
+              piece == null ? '' : _piece(piece),
+              style: TextStyle(
+                fontSize: 34,
+                color: piece?.color == chess_lib.Color.WHITE
+                    ? Colors.white
+                    : Colors.black,
+                shadows: const [Shadow(color: Colors.black45, blurRadius: 2)],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  String _pieceChar(chess_lib.Piece p) {
-    const w = {
-      'p': '\u2659',
-      'r': '\u2656',
-      'n': '\u2658',
-      'b': '\u2657',
-      'q': '\u2655',
-      'k': '\u2654',
-    };
-    const b = {
-      'p': '\u265F',
-      'r': '\u265C',
-      'n': '\u265E',
-      'b': '\u265D',
-      'q': '\u265B',
-      'k': '\u265A',
-    };
-    final t = p.type.toString().toLowerCase();
-    return p.color == chess_lib.Color.WHITE ? (w[t] ?? '') : (b[t] ?? '');
-  }
-
-  Widget _ludoBoard(AppProvider app, BotGameProvider botApp) {
-    final state = widget.game.state;
-    final turn = state['turn'] as String? ?? 'red';
-    final dice = state['dice'] as int?;
-    final tokens = state['tokens'] as Map<String, dynamic>? ?? {};
-    final winner = state['winner'] as String?;
-    final players = widget.game.players;
-
-    String myColor = '';
-    if (widget.isBot) {
-      myColor = ludoColorNames.firstWhere(
-        (c) => players[c] == 'player',
-        orElse: () => '',
-      );
-    } else {
-      myColor = ludoColorNames.firstWhere(
-        (c) => players[c] == app.profile?.id,
-        orElse: () => '',
-      );
-    }
-
-    final canPlay =
-        myColor == turn &&
-        winner == null &&
-        (!widget.isBot || !botApp.botThinking);
-
-    final laneColors = {
-      'red': VoxoraColors.primary,
-      'blue': VoxoraColors.cyan,
-      'green': VoxoraColors.success,
-      'yellow': VoxoraColors.lime,
-    };
-
-    return Column(
-      children: [
-        _metaRow([
-          VStatusBadge(
-            label: winner != null ? '$winner wins!' : '$turn\'s turn',
-            color: laneColors[winner ?? turn] ?? VoxoraColors.muted,
-            icon: winner != null ? Icons.emoji_events : Icons.circle,
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: VoxoraColors.surfaceLight,
-              border: Border.all(color: VoxoraColors.line),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.casino, size: 18, color: VoxoraColors.lime),
-                const SizedBox(width: 6),
-                Text(
-                  dice != null ? '$dice' : '-',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: VoxoraColors.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          VGradientButton(
-            label: 'Roll Dice',
-            icon: Icons.casino,
-            onTap: !canPlay || dice != null
-                ? null
-                : () {
-                    if (widget.isBot) {
-                      botApp.rollLudoDice(widget.game.id);
-                    } else {
-                      app.rollLudoDice(widget.game);
-                    }
-                  },
-          ),
-        ]),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 14,
-          runSpacing: 14,
-          children: ludoColorNames.map((color) {
-            final colorTokens =
-                (tokens[color] as List?)
-                    ?.map((value) => (value as num).toInt())
-                    .toList() ??
-                [0, 0, 0, 0];
-            final playerColor = laneColors[color]!;
-            final isMyTurn = myColor == color && canPlay;
-            final pName = widget.isBot
-                ? botApp.profileName(players[color])
-                : app.profileName(players[color]);
-
-            return Container(
-              width: 220,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: isMyTurn
-                      ? playerColor.withValues(alpha: 0.5)
-                      : VoxoraColors.line,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                color: VoxoraColors.surfaceLight,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: playerColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: playerColor,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        color[0].toUpperCase() + color.substring(1),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: playerColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(pName, style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List.generate(4, (i) {
-                      final pos = colorTokens[i];
-                      final finished = pos >= 56;
-                      final movable =
-                          myColor == color &&
-                          color == turn &&
-                          dice != null &&
-                          winner == null &&
-                          pos < 56 &&
-                          (pos > 0 || dice == 6) &&
-                          pos + dice <= 56;
-                      return GestureDetector(
-                        onTap: !movable
-                            ? null
-                            : () {
-                                if (widget.isBot) {
-                                  botApp.moveLudoToken(
-                                    widget.game.id,
-                                    color,
-                                    i,
-                                  );
-                                } else {
-                                  app.moveLudoToken(widget.game, color, i);
-                                }
-                              },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: finished
-                                ? playerColor.withValues(alpha: 0.2)
-                                : movable
-                                ? playerColor.withValues(alpha: 0.12)
-                                : VoxoraColors.surface,
-                            border: Border.all(
-                              color: finished || movable
-                                  ? playerColor.withValues(alpha: 0.4)
-                                  : VoxoraColors.line,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                'T${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: playerColor,
-                                ),
-                              ),
-                              Text(
-                                '$pos',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: finished
-                                      ? playerColor
-                                      : VoxoraColors.text,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _cardsTable(AppProvider app, BotGameProvider botApp) {
-    final state = widget.game.state;
-    final deck = (state['deck'] as List?)?.cast<String>() ?? [];
-    final hands = state['hands'] as Map<String, dynamic>? ?? {};
-    final table = state['table'] as Map<String, dynamic>? ?? {};
-    final scores = state['scores'] as Map<String, dynamic>? ?? {};
-    final round = state['round'] as int? ?? 1;
-    final order = (widget.game.players['order'] as List?)?.cast<String>() ?? [];
-
-    final myId = widget.isBot ? 'player' : app.profile?.id;
-    final myHand = (hands[myId] as List?)?.cast<String>() ?? [];
-    final allPlayed =
-        order.isNotEmpty && order.every((id) => table[id] != null);
-
-    void deal() {
-      if (widget.isBot) {
-        botApp.dealCards(widget.game.id);
-      } else {
-        final d = List<String>.from(deck);
-        final h = <String, dynamic>{};
-        for (final id in order) {
-          h[id] = d.take(5).toList();
-          d.removeRange(0, 5.clamp(0, d.length));
-        }
-        app.updateGame(widget.game.id, {
-          'state': {
-            'deck': d,
-            'hands': h,
-            'table': {},
-            'scores': scores,
-            'round': round,
-          },
-        });
+  void _tapSquare(
+    AppProvider app,
+    BotGameProvider bot,
+    chess_lib.Chess board,
+    String square,
+  ) {
+    if (board.game_over) return;
+    final isBotGame = widget.botGame != null;
+    final mySeat = isBotGame
+        ? (widget.botGame!.players['white'] == BotGameProvider.playerId
+              ? 'white'
+              : 'black')
+        : app.myPlayerForGame(widget.friendGame!.id)?.seat;
+    final turn = board.turn == chess_lib.Color.WHITE ? 'white' : 'black';
+    if (mySeat != turn) return;
+    final piece = board.get(square);
+    if (_selected == null) {
+      if (piece != null &&
+          ((piece.color == chess_lib.Color.WHITE && mySeat == 'white') ||
+              (piece.color == chess_lib.Color.BLACK && mySeat == 'black'))) {
+        setState(() => _selected = square);
       }
+      return;
     }
-
-    void settle() {
-      // In bot mode, settling is automatic.
-      if (widget.isBot) return;
-
-      final entries = order
-          .map((id) => MapEntry(id, table[id] as String?))
-          .where((e) => e.value != null)
-          .toList();
-      if (entries.isEmpty) return;
-      entries.sort(
-        (a, b) =>
-            cardRanks.indexOf(b.value!.replaceAll(RegExp(r'[SHDC]'), '')) -
-            cardRanks.indexOf(a.value!.replaceAll(RegExp(r'[SHDC]'), '')),
-      );
-      final w = entries.first.key;
-      final s = Map<String, dynamic>.from(scores);
-      s[w] = ((s[w] as int?) ?? 0) + 1;
-      final handsAreEmpty = order.every(
-        (id) => ((hands[id] as List?) ?? const []).isEmpty,
-      );
-      app.updateGame(widget.game.id, {
-        'state': {...state, 'scores': s, 'table': {}, 'round': round + 1},
-        'is_active': !handsAreEmpty,
-      });
+    final from = _selected!;
+    final test = chess_lib.Chess.fromFEN(board.fen);
+    final moved = test.move({'from': from, 'to': square, 'promotion': 'q'});
+    if (moved) {
+      if (isBotGame) {
+        bot.makeChessMove(widget.botGame!.id, from, square);
+      } else {
+        app.makeChessMove(widget.friendGame!, from, square);
+      }
+      setState(() => _selected = null);
+      return;
     }
+    setState(() => _selected = piece == null ? null : square);
+  }
+
+  String _piece(chess_lib.Piece piece) {
+    const white = {'p': '♙', 'r': '♖', 'n': '♘', 'b': '♗', 'q': '♕', 'k': '♔'};
+    const black = {'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚'};
+    final type = piece.type.toString().toLowerCase();
+    return piece.color == chess_lib.Color.WHITE ? white[type]! : black[type]!;
+  }
+
+  String _chessStatus(chess_lib.Chess board) {
+    if (board.in_checkmate) return 'Checkmate';
+    if (board.in_draw) return 'Draw';
+    final turn = board.turn == chess_lib.Color.WHITE ? 'White' : 'Black';
+    return board.in_check ? '$turn is in check' : '$turn to move';
+  }
+}
+
+class _LudoBoard extends StatelessWidget {
+  final GameSession? friendGame;
+  final BotGame? botGame;
+
+  const _LudoBoard({this.friendGame, this.botGame});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final bot = context.watch<BotGameProvider>();
+    final state = botGame?.state ?? friendGame!.state;
+    final players =
+        botGame?.players ??
+        {
+          for (final player in app.playersForGame(friendGame!.id))
+            player.seat: player.userId,
+        };
+    final colors = List<String>.from(
+      state['activeColors'] as List? ?? ludoColorNames.take(4),
+    );
+    final turn = state['turn'] as String? ?? colors.first;
+    final dice = state['dice'] as int?;
+    final winner = state['winner'] as String?;
+    final mySeat = botGame == null
+        ? app.myPlayerForGame(friendGame!.id)?.seat
+        : colors.firstWhere(
+            (color) => players[color] == BotGameProvider.playerId,
+            orElse: () => '',
+          );
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _metaRow([
-          VStatusBadge(
-            label: 'Round $round',
-            color: VoxoraColors.lime,
-            icon: Icons.replay,
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: VoxoraColors.surfaceLight,
-              border: Border.all(color: VoxoraColors.line),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            CountChip(
+              icon: Icons.flag_outlined,
+              label: winner == null ? '$turn turn' : '$winner wins',
+              color: _laneColor(turn),
             ),
-            child: Text(
-              'Deck: ${deck.length}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: VoxoraColors.muted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          VGradientButton(
-            label: 'Deal',
-            icon: Icons.style,
-            onTap: order.length < 2 || deck.isEmpty ? null : deal,
-          ),
-          if (!widget.isBot) ...[
-            const SizedBox(width: 8),
-            VSecondaryButton(
-              label: 'Score Round',
-              icon: Icons.check,
-              onTap: !allPlayed ? null : settle,
+            _Dice3D(value: dice),
+            FilledButton.icon(
+              onPressed: winner != null || mySeat != turn || dice != null
+                  ? null
+                  : () {
+                      if (botGame == null) {
+                        app.rollLudoDice(friendGame!);
+                      } else {
+                        bot.rollLudoDice(botGame!.id);
+                      }
+                    },
+              icon: const Icon(Icons.casino_outlined),
+              label: const Text('Roll'),
             ),
           ],
-        ]),
+        ),
+        const SizedBox(height: 16),
+        _LudoGrid(colors: colors),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: order.map((id) {
-            final score = (scores[id] as int?) ?? 0;
-            final played = table[id] as String?;
-            final cardCount = (hands[id] as List?)?.length ?? 0;
-            final pName = widget.isBot
-                ? botApp.profileName(id)
-                : app.profileName(id);
-
-            return Container(
-              width: 160,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: played != null
-                      ? VoxoraColors.success.withValues(alpha: 0.3)
-                      : VoxoraColors.line,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                color: VoxoraColors.surfaceLight,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    pName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: VoxoraColors.text,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.emoji_events,
-                        size: 14,
-                        color: VoxoraColors.lime,
+          children: colors.map((color) {
+            final tokens = List<int>.from(
+              (state['tokens'] as Map)[color] as List? ?? [0, 0, 0, 0],
+            );
+            final lane = _laneColor(color);
+            return SizedBox(
+              width: 230,
+              child: AppCard(
+                color: lane.withValues(alpha: 0.07),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      color.toUpperCase(),
+                      style: TextStyle(
+                        color: lane,
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$score',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: VoxoraColors.lime,
+                    ),
+                    Text(
+                      _playerLabel(app, bot, players[color]),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(4, (index) {
+                        final movable =
+                            mySeat == color &&
+                            color == turn &&
+                            dice != null &&
+                            winner == null &&
+                            _canMove(tokens[index], dice);
+                        return InkWell(
+                          onTap: movable
+                              ? () {
+                                  if (botGame == null) {
+                                    app.moveLudoToken(friendGame!, index);
+                                  } else {
+                                    bot.moveLudoToken(
+                                      botGame!.id,
+                                      color,
+                                      index,
+                                    );
+                                  }
+                                }
+                              : null,
+                          borderRadius: BorderRadius.circular(30),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: lane,
+                              boxShadow: movable
+                                  ? [
+                                      BoxShadow(
+                                        color: lane.withValues(alpha: 0.55),
+                                        blurRadius: 16,
+                                      ),
+                                    ]
+                                  : null,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: movable ? 3 : 1,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              tokens[index].toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    if (mySeat == color && dice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Highlighted pieces can move.',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    played != null ? 'Played: $played' : '$cardCount cards',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: played != null
-                          ? VoxoraColors.success
-                          : VoxoraColors.muted,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }).toList(),
         ),
-        const SizedBox(height: 16),
-        if (myHand.isNotEmpty) ...[
-          Text('YOUR HAND', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: myHand.map((card) {
-              final suit = card.replaceAll(RegExp(r'[^SHDC]'), '');
-              final isRed = suit == 'H' || suit == 'D';
-              return GestureDetector(
-                onTap:
-                    table[myId] != null || (widget.isBot && botApp.botThinking)
-                    ? null
-                    : () {
-                        if (widget.isBot) {
-                          botApp.playCard(widget.game.id, card);
-                        } else {
-                          final h = Map<String, dynamic>.from(hands);
-                          h[myId!] = myHand.where((c) => c != card).toList();
-                          final t = Map<String, dynamic>.from(table);
-                          t[myId] = card;
-                          app.updateGame(widget.game.id, {
-                            'state': {...state, 'hands': h, 'table': t},
-                          });
-                        }
-                      },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: VoxoraColors.surface,
-                    border: Border.all(
-                      color: isRed
-                          ? VoxoraColors.primary.withValues(alpha: 0.4)
-                          : VoxoraColors.line,
-                    ),
-                  ),
-                  child: Text(
-                    card,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: isRed ? VoxoraColors.primary : VoxoraColors.text,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
       ],
     );
   }
 
-  Widget _metaRow(List<Widget> children) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      border: Border.all(color: VoxoraColors.line),
-      borderRadius: BorderRadius.circular(12),
-      color: VoxoraColors.surfaceLight,
-    ),
-    child: Wrap(
-      spacing: 10,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: children,
-    ),
-  );
+  bool _canMove(int position, int dice) {
+    return position < 56 &&
+        (position > 0 || dice == 6) &&
+        position + dice <= 56;
+  }
+
+  String _playerLabel(AppProvider app, BotGameProvider bot, dynamic id) {
+    if (botGame != null) return bot.profileName(id);
+    return app.profileById(id as String?)?.fullName ?? 'Open seat';
+  }
+
+  Color _laneColor(String color) {
+    return Color(ludoBoardColors[color] ?? 0xFF64748B);
+  }
+}
+
+class _LudoGrid extends StatelessWidget {
+  final List<String> colors;
+
+  const _LudoGrid({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: CustomPaint(painter: _LudoPainter(colors)),
+    );
+  }
+}
+
+class _LudoPainter extends CustomPainter {
+  final List<String> colors;
+
+  _LudoPainter(this.colors);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.width / 15;
+    final paint = Paint()..style = PaintingStyle.fill;
+    final lanes = {
+      'red': Rect.fromLTWH(0, 0, cell * 6, cell * 6),
+      'blue': Rect.fromLTWH(cell * 9, 0, cell * 6, cell * 6),
+      'green': Rect.fromLTWH(0, cell * 9, cell * 6, cell * 6),
+      'yellow': Rect.fromLTWH(cell * 9, cell * 9, cell * 6, cell * 6),
+    };
+    paint.color = Colors.white;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
+      paint,
+    );
+    for (final entry in lanes.entries) {
+      paint.color = Color(
+        ludoBoardColors[entry.key]!,
+      ).withValues(alpha: colors.contains(entry.key) ? 0.88 : 0.16);
+      canvas.drawRect(entry.value, paint);
+      paint.color = Colors.white.withValues(alpha: 0.9);
+      canvas.drawCircle(entry.value.center, cell * 1.7, paint);
+    }
+    paint.color = const Color(0xFFE5E7EB);
+    for (var i = 0; i <= 15; i++) {
+      canvas.drawLine(
+        Offset(i * cell, 0),
+        Offset(i * cell, size.height),
+        paint,
+      );
+      canvas.drawLine(Offset(0, i * cell), Offset(size.width, i * cell), paint);
+    }
+    final pathPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * 0.7
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF111827).withValues(alpha: 0.18);
+    canvas.drawLine(
+      Offset(cell * 7.5, cell),
+      Offset(cell * 7.5, cell * 14),
+      pathPaint,
+    );
+    canvas.drawLine(
+      Offset(cell, cell * 7.5),
+      Offset(cell * 14, cell * 7.5),
+      pathPaint,
+    );
+    paint.color = const Color(0xFF111827);
+    final center = Path()
+      ..moveTo(cell * 6, cell * 6)
+      ..lineTo(cell * 9, cell * 6)
+      ..lineTo(cell * 9, cell * 9)
+      ..lineTo(cell * 6, cell * 9)
+      ..close();
+    canvas.drawPath(center, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LudoPainter oldDelegate) =>
+      oldDelegate.colors != colors;
+}
+
+class _Dice3D extends StatelessWidget {
+  final int? value;
+
+  const _Dice3D({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFD1D5DB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 14,
+            offset: Offset(4, 6),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        value?.toString() ?? '-',
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _CardsTable extends StatelessWidget {
+  final GameSession? friendGame;
+  final BotGame? botGame;
+
+  const _CardsTable({this.friendGame, this.botGame});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final bot = context.watch<BotGameProvider>();
+    final state = botGame?.state ?? friendGame!.state;
+    final hands = Map<String, dynamic>.from(state['hands'] as Map? ?? {});
+    final table = Map<String, dynamic>.from(state['table'] as Map? ?? {});
+    final scores = Map<String, dynamic>.from(state['scores'] as Map? ?? {});
+    final order = List<String>.from(state['order'] as List? ?? []);
+    final mySeat = botGame == null
+        ? app.myPlayerForGame(friendGame!.id)?.seat
+        : BotGameProvider.playerId;
+    final myHand = List<String>.from(hands[mySeat] as List? ?? []);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            CountChip(
+              icon: Icons.replay,
+              label: 'Round ${state['round'] ?? 1}',
+            ),
+            if (botGame == null)
+              FilledButton.icon(
+                onPressed:
+                    app.profile?.id == friendGame!.hostId && order.isEmpty
+                    ? () => app.dealCards(friendGame!)
+                    : null,
+                icon: const Icon(Icons.style_outlined),
+                label: const Text('Deal'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: (order.isEmpty ? ['p1', 'p2'] : order).map((seat) {
+            final played = table[seat] as String?;
+            return AppCard(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: SizedBox(
+                width: 140,
+                child: Column(
+                  children: [
+                    Text(
+                      _seatName(app, bot, seat),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    CountChip(
+                      icon: Icons.emoji_events_outlined,
+                      label: '${scores[seat] ?? 0}',
+                    ),
+                    const SizedBox(height: 8),
+                    _PlayingCard(card: played, back: played == null),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 18),
+        Text('Your hand', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        if (myHand.isEmpty)
+          Text(
+            'Cards appear here after the host deals.',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: myHand.map((card) {
+              final canPlay = botGame == null
+                  ? friendGame!.currentSeat == mySeat
+                  : table[BotGameProvider.playerId] == null && !bot.botThinking;
+              return InkWell(
+                onTap: canPlay
+                    ? () {
+                        if (botGame == null) {
+                          app.playCard(friendGame!, card);
+                        } else {
+                          bot.playCard(botGame!.id, card);
+                        }
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: _PlayingCard(card: card),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  String _seatName(AppProvider app, BotGameProvider bot, String seat) {
+    if (botGame != null) {
+      return bot.profileName(
+        seat == BotGameProvider.playerId
+            ? seat
+            : seat.replaceFirst('p', 'bot_'),
+      );
+    }
+    final player = app
+        .playersForGame(friendGame!.id)
+        .where((p) => p.seat == seat)
+        .firstOrNull;
+    return app.profileById(player?.userId)?.fullName ?? seat.toUpperCase();
+  }
+}
+
+class _PlayingCard extends StatelessWidget {
+  final String? card;
+  final bool back;
+
+  const _PlayingCard({this.card, this.back = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final red = card != null && (card!.endsWith('H') || card!.endsWith('D'));
+    final suit = card == null ? '' : card!.substring(card!.length - 1);
+    final rank = card == null ? '' : card!.substring(0, card!.length - 1);
+    return Container(
+      width: 72,
+      height: 104,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: back ? const Color(0xFF1D4ED8) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(2, 4)),
+        ],
+      ),
+      child: back
+          ? const Center(child: Icon(Icons.auto_awesome, color: Colors.white))
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rank,
+                  style: TextStyle(
+                    color: red ? Colors.red : Colors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  _suit(suit),
+                  style: TextStyle(
+                    color: red ? Colors.red : Colors.black,
+                    fontSize: 24,
+                  ),
+                ),
+                const Spacer(),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Text(
+                    rank,
+                    style: TextStyle(
+                      color: red ? Colors.red : Colors.black,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  String _suit(String suit) {
+    return switch (suit) {
+      'S' => '♠',
+      'H' => '♥',
+      'D' => '♦',
+      'C' => '♣',
+      _ => '',
+    };
+  }
+}
+
+class _GuideDialog extends StatelessWidget {
+  final String type;
+
+  const _GuideDialog({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final rules = switch (type) {
+      'chess' => [
+        'Move one piece on your turn.',
+        'Protect your king. Checkmate wins.',
+        'Tap your piece to see legal destination squares.',
+        'Pawns promote to queen automatically in this app.',
+      ],
+      'ludo' => [
+        'Roll the dice on your color turn.',
+        'A piece leaves base only on a six.',
+        'Reach 56 with all pieces to win.',
+        'Glowing pieces are legal moves for the current dice.',
+      ],
+      'cards' => [
+        'Each player receives five cards.',
+        'Players play one card per round.',
+        'Highest rank wins the round.',
+        'Most won rounds after hands empty wins.',
+      ],
+      _ => <String>[],
+    };
+    return AlertDialog(
+      title: Text('${gameTitles[type]} rules'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rules
+            .map(
+              (rule) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(rule)),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TutorialDialog extends StatelessWidget {
+  final String type;
+
+  const _TutorialDialog({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = switch (type) {
+      'chess' => [
+        'Start by developing pawns and knights.',
+        'Tap a piece and follow the green squares.',
+        'If your king is checked, your move must remove the check.',
+      ],
+      'ludo' => [
+        'Roll first, then choose one highlighted piece.',
+        'Use sixes to bring new pieces out.',
+        'Near home, choose exact moves that reach 56.',
+      ],
+      'cards' => [
+        'Play low cards when you cannot win.',
+        'Play the lowest card that beats the table when you can win.',
+        'Track scores after each round.',
+      ],
+      _ => <String>[],
+    };
+    return AlertDialog(
+      title: Text('${gameTitles[type]} tutorial'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < steps.length; i++)
+            ListTile(
+              leading: CircleAvatar(child: Text('${i + 1}')),
+              title: Text(steps[i]),
+            ),
+        ],
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Start playing'),
+        ),
+      ],
+    );
+  }
 }

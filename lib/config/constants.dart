@@ -1,9 +1,3 @@
-// Supabase credentials are injected at build time via --dart-define.
-// For local dev, pass them on the command line:
-//   flutter run --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_ANON_KEY=...
-//
-// For GitHub Pages CI, see .github/workflows/pages.yml
-
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 const appPublicUrl = String.fromEnvironment(
@@ -13,10 +7,14 @@ const appPublicUrl = String.fromEnvironment(
 bool get isSupabaseConfigured =>
     supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
-const fallbackAvatarAsset = 'assets/avatar-zain.png';
-const fallbackCoverAsset = 'assets/room-aurora.png';
-
 const ludoColorNames = ['red', 'blue', 'green', 'yellow'];
+const ludoBoardColors = {
+  'red': 0xFFE53935,
+  'blue': 0xFF1E88E5,
+  'green': 0xFF43A047,
+  'yellow': 0xFFFDD835,
+};
+
 const cardRanks = [
   '2',
   '3',
@@ -33,3 +31,5 @@ const cardRanks = [
   'A',
 ];
 const cardSuits = ['S', 'H', 'D', 'C'];
+
+const gameTitles = {'chess': 'Chess', 'ludo': 'Ludo', 'cards': 'Cards'};

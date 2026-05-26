@@ -50,7 +50,9 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Voxora uses the microphone for live room voice calls and meetings.</string>
+	<string>Voxora uses the microphone for friend audio and video calls.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Voxora uses the camera for friend video calls.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

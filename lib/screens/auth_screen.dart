@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/app_provider.dart';
-import '../widgets/common_widgets.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -12,43 +11,245 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with SingleTickerProviderStateMixin {
-  bool _isLogin = false;
-  bool _busy = false;
-  String _error = '';
-  bool _showPassword = false;
+class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailC = TextEditingController();
-  final _passwordC = TextEditingController();
-  final _nameC = TextEditingController();
-  final _handleC = TextEditingController();
-  final _bioC = TextEditingController();
-  final _interestsC = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _name = TextEditingController();
+  final _handle = TextEditingController();
+  final _bio = TextEditingController();
+  final _interests = TextEditingController();
 
-  late AnimationController _animCtrl;
-  late Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
-    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
-  }
+  bool _login = true;
+  bool _busy = false;
+  bool _showPassword = false;
+  String _error = '';
 
   @override
   void dispose() {
-    _emailC.dispose();
-    _passwordC.dispose();
-    _nameC.dispose();
-    _handleC.dispose();
-    _bioC.dispose();
-    _interestsC.dispose();
-    _animCtrl.dispose();
+    _email.dispose();
+    _password.dispose();
+    _name.dispose();
+    _handle.dispose();
+    _bio.dispose();
+    _interests.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            SvgPicture.asset(
+                              'assets/voxora-mark.svg',
+                              width: 38,
+                              height: 38,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Voxora',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                  Text(
+                                    'Friends, posts, chat, calls, and games',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(
+                              value: true,
+                              icon: Icon(Icons.login),
+                              label: Text('Log in'),
+                            ),
+                            ButtonSegment(
+                              value: false,
+                              icon: Icon(Icons.person_add_alt_1),
+                              label: Text('Sign up'),
+                            ),
+                          ],
+                          selected: {_login},
+                          onSelectionChanged: (value) => setState(() {
+                            _login = value.first;
+                            _error = '';
+                          }),
+                        ),
+                        const SizedBox(height: 18),
+                        if (!_login) ...[
+                          _field(
+                            _name,
+                            'Display name',
+                            Icons.person_outline,
+                            validator: _minTwo,
+                          ),
+                          const SizedBox(height: 12),
+                          _field(
+                            _handle,
+                            'Handle',
+                            Icons.alternate_email,
+                            validator: _handleRule,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        _field(
+                          _email,
+                          'Email',
+                          Icons.email_outlined,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) => (value ?? '').contains('@')
+                              ? null
+                              : 'Enter a valid email.',
+                        ),
+                        const SizedBox(height: 12),
+                        _field(
+                          _password,
+                          'Password',
+                          Icons.lock_outline,
+                          obscureText: !_showPassword,
+                          suffix: IconButton(
+                            tooltip: _showPassword
+                                ? 'Hide password'
+                                : 'Show password',
+                            icon: Icon(
+                              _showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showPassword = !_showPassword),
+                          ),
+                          validator: (value) {
+                            final password = value ?? '';
+                            if (_login) {
+                              return password.isEmpty
+                                  ? 'Enter your password.'
+                                  : null;
+                            }
+                            final strong = RegExp(
+                              r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$',
+                            );
+                            return strong.hasMatch(password)
+                                ? null
+                                : 'Use 10+ chars with upper, lower, number, and symbol.';
+                          },
+                        ),
+                        if (!_login) ...[
+                          const SizedBox(height: 12),
+                          _field(_bio, 'Bio', Icons.info_outline, maxLines: 3),
+                          const SizedBox(height: 12),
+                          _field(
+                            _interests,
+                            'Interests',
+                            Icons.interests_outlined,
+                          ),
+                        ],
+                        if (_error.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: VoxoraColors.rose.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _error,
+                              style: const TextStyle(color: VoxoraColors.rose),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
+                          onPressed: _busy ? null : _submit,
+                          icon: _busy
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: scheme.onPrimary,
+                                  ),
+                                )
+                              : Icon(
+                                  _login ? Icons.login : Icons.person_add_alt_1,
+                                ),
+                          label: Text(_login ? 'Log in' : 'Create account'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  TextFormField _field(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+    int maxLines = 1,
+    Widget? suffix,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      maxLines: maxLines,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: suffix,
+      ),
+    );
+  }
+
+  String? _minTwo(String? value) =>
+      (value ?? '').trim().length < 2 ? 'Enter at least 2 characters.' : null;
+
+  String? _handleRule(String? value) {
+    final clean = (value ?? '').trim();
+    if (clean.length < 3) return 'Enter at least 3 characters.';
+    if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(clean)) {
+      return 'Use letters, numbers, dots, dashes, or underscores.';
+    }
+    return null;
   }
 
   Future<void> _submit() async {
@@ -58,482 +259,20 @@ class _AuthScreenState extends State<AuthScreen>
       _error = '';
     });
     final app = context.read<AppProvider>();
-    String? err;
-    try {
-      if (_isLogin) {
-        err = await app.signIn(
-          email: _emailC.text.trim(),
-          password: _passwordC.text,
-        );
-      } else {
-        err = await app.signUp(
-          email: _emailC.text.trim(),
-          password: _passwordC.text,
-          fullName: _nameC.text.trim(),
-          handle: _handleC.text.trim(),
-          bio: _bioC.text.trim(),
-          interests: _interestsC.text.trim(),
-        );
-      }
-    } catch (error) {
-      err = error.toString();
-    }
-    if (mounted) {
-      setState(() {
-        _busy = false;
-        _error = err ?? '';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 900;
-
-    return Scaffold(
-      backgroundColor: VoxoraColors.bg,
-      body: VSpaceBackground(
-        dense: true,
-        child: SafeArea(
-          child: isWide
-              ? Row(
-                  children: [
-                    Expanded(child: _heroBanner(context)),
-                    SizedBox(width: 520, child: _authCard(context)),
-                  ],
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _mobileHero(context),
-                      const SizedBox(height: 22),
-                      _authCard(context),
-                    ],
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _heroBanner(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 620;
-        final headlineSize = compact ? 52.0 : 76.0;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            compact ? 36 : 64,
-            42,
-            compact ? 28 : 46,
-            54,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _brandPill(context),
-              const Spacer(),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  SizedBox(
-                    width: constraints.maxWidth,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'BEYOND VOICE\nAND ( ITS )\nFAMILIAR BOUNDARIES',
-                        style: Theme.of(context).textTheme.headlineLarge
-                            ?.copyWith(
-                              fontSize: headlineSize,
-                              height: 1.02,
-                              color: VoxoraColors.cream,
-                            ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: compact ? 8 : 24,
-                    top: compact ? 42 : 58,
-                    child: Transform.rotate(
-                      angle: -0.04,
-                      child: Text(
-                        'Live signal',
-                        style: VoxoraTheme.condiment(
-                          fontSize: compact ? 38 : 54,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 30),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Text(
-                  'A social voice system built for rooms, presence, and conversations that keep their shape.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: VoxoraColors.cream.withValues(alpha: 0.72),
-                    height: 1.7,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 36),
-              Row(
-                children: [
-                  _socialGlass(Icons.mail_outline),
-                  const SizedBox(width: 12),
-                  _socialGlass(Icons.alternate_email),
-                  const SizedBox(width: 12),
-                  _socialGlass(Icons.code),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _mobileHero(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _brandPill(context),
-      const SizedBox(height: 30),
-      Stack(
-        clipBehavior: Clip.none,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'BEYOND VOICE\nAND ( ITS )\nBOUNDARIES',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontSize: 40,
-                  height: 1.05,
-                  color: VoxoraColors.cream,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 8,
-            bottom: 6,
-            child: Transform.rotate(
-              angle: -0.05,
-              child: Text(
-                'Live signal',
-                style: VoxoraTheme.condiment(fontSize: 32),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-
-  Widget _brandPill(BuildContext context) => VLiquidGlass(
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-    borderRadius: BorderRadius.circular(999),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset('assets/voxora-mark.svg', width: 24, height: 24),
-        const SizedBox(width: 10),
-        Text(
-          'VOXORA',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: VoxoraColors.cream,
-            letterSpacing: 1.6,
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _socialGlass(IconData icon) => VLiquidGlass(
-    padding: EdgeInsets.zero,
-    borderRadius: BorderRadius.circular(16),
-    child: SizedBox(
-      width: 56,
-      height: 56,
-      child: Icon(icon, color: VoxoraColors.cream, size: 20),
-    ),
-  );
-
-  Widget _authCard(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 900;
-
-    return FadeTransition(
-      opacity: _fadeAnim,
-      child: Align(
-        alignment: Alignment.center,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(isWide ? 18 : 0, 0, isWide ? 42 : 0, 0),
-          child: VLiquidGlass(
-            padding: EdgeInsets.all(isWide ? 34 : 24),
-            borderRadius: BorderRadius.circular(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isWide) ...[
-                  SvgPicture.asset(
-                    'assets/voxora-mark.svg',
-                    width: 46,
-                    height: 46,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'VOXORA',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Signal open',
-                    style: VoxoraTheme.condiment(fontSize: 26),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _segmentButton(
-                        'Sign up',
-                        !_isLogin,
-                        () => setState(() => _isLogin = false),
-                      ),
-                      _segmentButton(
-                        'Log in',
-                        _isLogin,
-                        () => setState(() => _isLogin = true),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 26),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      if (!_isLogin) ...[
-                        _field(
-                          _nameC,
-                          'Display name',
-                          Icons.person_outline,
-                          validator: (v) =>
-                              (v?.length ?? 0) < 2 ? 'Too short' : null,
-                        ),
-                        const SizedBox(height: 14),
-                        _field(
-                          _handleC,
-                          'Handle',
-                          Icons.alternate_email,
-                          validator: (v) =>
-                              (v?.length ?? 0) < 3 ? 'Too short' : null,
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      _field(
-                        _emailC,
-                        'Email',
-                        Icons.email_outlined,
-                        type: TextInputType.emailAddress,
-                        validator: (v) => (v ?? '').contains('@')
-                            ? null
-                            : 'Enter a valid email',
-                      ),
-                      const SizedBox(height: 14),
-                      _field(
-                        _passwordC,
-                        'Password',
-                        Icons.lock_outline,
-                        obscure: !_showPassword,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            size: 20,
-                            color: VoxoraColors.muted,
-                          ),
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
-                        ),
-                        validator: (v) {
-                          final value = v ?? '';
-                          if (_isLogin) {
-                            return value.isEmpty ? 'Enter your password' : null;
-                          }
-                          final strongPassword = RegExp(
-                            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$',
-                          );
-                          return strongPassword.hasMatch(value)
-                              ? null
-                              : 'Use 10+ chars with upper, lower, number, symbol';
-                        },
-                      ),
-                      if (!_isLogin) ...[
-                        const SizedBox(height: 14),
-                        _field(
-                          _bioC,
-                          'Bio (optional)',
-                          Icons.info_outline,
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 14),
-                        _field(
-                          _interestsC,
-                          'Interests (comma-separated)',
-                          Icons.interests_outlined,
-                        ),
-                      ],
-                      if (_error.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: VoxoraColors.danger.withValues(alpha: 0.1),
-                            border: Border.all(
-                              color: VoxoraColors.danger.withValues(alpha: 0.3),
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                size: 18,
-                                color: VoxoraColors.danger,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _error,
-                                  style: const TextStyle(
-                                    color: VoxoraColors.danger,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Container(
-                          decoration: VoxoraTheme.gradientButtonDecoration,
-                          child: ElevatedButton.icon(
-                            onPressed: _busy ? null : _submit,
-                            icon: _busy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: VoxoraColors.bg,
-                                    ),
-                                  )
-                                : Icon(
-                                    _isLogin ? Icons.login : Icons.person_add,
-                                    size: 18,
-                                  ),
-                            label: Text(
-                              _busy
-                                  ? 'Please wait...'
-                                  : (_isLogin ? 'Log in' : 'Create account'),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              minimumSize: const Size(0, 52),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _segmentButton(String label, bool active, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: active
-                ? const LinearGradient(
-                    colors: [VoxoraColors.neon, Color(0xFFD7FF7A)],
-                  )
-                : null,
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: VoxoraColors.neon.withValues(alpha: 0.28),
-                      blurRadius: 14,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: active ? VoxoraColors.bg : VoxoraColors.muted,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _field(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    TextInputType type = TextInputType.text,
-    bool obscure = false,
-    int maxLines = 1,
-    Widget? suffixIcon,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: type,
-      obscureText: obscure,
-      maxLines: maxLines,
-      validator: validator,
-      style: const TextStyle(color: VoxoraColors.text, fontFamily: 'monospace'),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: label,
-        prefixIcon: Icon(icon, size: 20, color: VoxoraColors.muted),
-        suffixIcon: suffixIcon,
-      ),
-    );
+    final error = _login
+        ? await app.signIn(email: _email.text, password: _password.text)
+        : await app.signUp(
+            email: _email.text,
+            password: _password.text,
+            fullName: _name.text,
+            handle: _handle.text,
+            bio: _bio.text,
+            interests: _interests.text,
+          );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = error ?? '';
+    });
   }
 }

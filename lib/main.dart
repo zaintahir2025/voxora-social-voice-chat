@@ -39,7 +39,9 @@ class VoxoraApp extends StatelessWidget {
       return MaterialApp(
         title: 'Voxora',
         debugShowCheckedModeBanner: false,
-        theme: VoxoraTheme.theme,
+        theme: VoxoraTheme.light(),
+        darkTheme: VoxoraTheme.dark(),
+        themeMode: ThemeMode.system,
         home: SetupScreen(error: startupError?.toString()),
       );
     }
@@ -49,24 +51,30 @@ class VoxoraApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppProvider()..init()),
         ChangeNotifierProvider(create: (_) => BotGameProvider()),
       ],
-      child: MaterialApp(
-        title: 'Voxora',
-        debugShowCheckedModeBanner: false,
-        theme: VoxoraTheme.theme,
-        home: Consumer<AppProvider>(
-          builder: (context, app, _) {
-            if (app.loading) return const LoadingScreen();
-            if (app.session != null &&
-                app.profile == null &&
-                app.dataError.isNotEmpty) {
-              return _DataErrorScreen(error: app.dataError);
-            }
-            if (app.session == null || app.profile == null) {
-              return const AuthScreen();
-            }
-            return const HomeScreen();
-          },
-        ),
+      child: Consumer<AppProvider>(
+        builder: (context, app, _) {
+          return MaterialApp(
+            title: 'Voxora',
+            debugShowCheckedModeBanner: false,
+            theme: VoxoraTheme.light(),
+            darkTheme: VoxoraTheme.dark(),
+            themeMode: app.themeMode,
+            home: Builder(
+              builder: (context) {
+                if (app.loading) return const LoadingScreen();
+                if (app.session != null &&
+                    app.profile == null &&
+                    app.dataError.isNotEmpty) {
+                  return _DataErrorScreen(error: app.dataError);
+                }
+                if (app.session == null || app.profile == null) {
+                  return const AuthScreen();
+                }
+                return const HomeScreen();
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -82,7 +90,6 @@ class _DataErrorScreen extends StatelessWidget {
     final app = context.read<AppProvider>();
 
     return Scaffold(
-      backgroundColor: VoxoraColors.bg,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -93,7 +100,7 @@ class _DataErrorScreen extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.cloud_off_outlined,
-                  color: VoxoraColors.danger,
+                  color: VoxoraColors.rose,
                   size: 48,
                 ),
                 const SizedBox(height: 18),

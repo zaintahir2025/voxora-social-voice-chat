@@ -1,5 +1,3 @@
-// All data models for Voxora, matching the Supabase schema.
-
 class Profile {
   final String id;
   final String? email;
@@ -9,12 +7,10 @@ class Profile {
   final String? coverUrl;
   final String bio;
   final List<String> interests;
-  final int level;
-  final bool isAdmin;
-  final bool isBlocked;
+  final String status;
   final String createdAt;
 
-  Profile({
+  const Profile({
     required this.id,
     this.email,
     required this.fullName,
@@ -23,9 +19,7 @@ class Profile {
     this.coverUrl,
     this.bio = '',
     this.interests = const [],
-    this.level = 1,
-    this.isAdmin = false,
-    this.isBlocked = false,
+    this.status = 'online',
     required this.createdAt,
   });
 
@@ -39,207 +33,11 @@ class Profile {
     bio: json['bio'] as String? ?? '',
     interests:
         (json['interests'] as List<dynamic>?)
-            ?.map((e) => e.toString())
+            ?.map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
             .toList() ??
-        [],
-    level: json['level'] as int? ?? 1,
-    isAdmin: json['is_admin'] as bool? ?? false,
-    isBlocked: json['is_blocked'] as bool? ?? false,
-    createdAt: json['created_at'] as String? ?? '',
-  );
-}
-
-class Room {
-  final String id;
-  final String title;
-  final String topic;
-  final String description;
-  final String hostId;
-  final int capacity;
-  final bool isLive;
-  final bool isLocked;
-  final String createdAt;
-  final String? endedAt;
-
-  Room({
-    required this.id,
-    required this.title,
-    this.topic = 'General',
-    this.description = '',
-    required this.hostId,
-    this.capacity = 200,
-    this.isLive = true,
-    this.isLocked = false,
-    required this.createdAt,
-    this.endedAt,
-  });
-
-  factory Room.fromJson(Map<String, dynamic> json) => Room(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    topic: json['topic'] as String? ?? 'General',
-    description: json['description'] as String? ?? '',
-    hostId: json['host_id'] as String,
-    capacity: json['capacity'] as int? ?? 200,
-    isLive: json['is_live'] as bool? ?? true,
-    isLocked: json['is_locked'] as bool? ?? false,
-    createdAt: json['created_at'] as String? ?? '',
-    endedAt: json['ended_at'] as String?,
-  );
-}
-
-class RoomParticipant {
-  final String roomId;
-  final String userId;
-  final String role;
-  final bool muted;
-  final bool speaking;
-  final String joinedAt;
-  final Profile? profile;
-
-  RoomParticipant({
-    required this.roomId,
-    required this.userId,
-    this.role = 'listener',
-    this.muted = true,
-    this.speaking = false,
-    required this.joinedAt,
-    this.profile,
-  });
-
-  factory RoomParticipant.fromJson(Map<String, dynamic> json) {
-    Profile? profile;
-    final p = json['profiles'];
-    if (p is Map<String, dynamic>) {
-      profile = Profile.fromJson(p);
-    } else if (p is List && p.isNotEmpty && p[0] is Map<String, dynamic>) {
-      profile = Profile.fromJson(p[0] as Map<String, dynamic>);
-    }
-    return RoomParticipant(
-      roomId: json['room_id'] as String,
-      userId: json['user_id'] as String,
-      role: json['role'] as String? ?? 'listener',
-      muted: json['muted'] as bool? ?? true,
-      speaking: json['speaking'] as bool? ?? false,
-      joinedAt: json['joined_at'] as String? ?? '',
-      profile: profile,
-    );
-  }
-}
-
-class RoomMessage {
-  final String id;
-  final String roomId;
-  final String senderId;
-  final String body;
-  final String kind;
-  final String createdAt;
-  final Profile? profile;
-
-  RoomMessage({
-    required this.id,
-    required this.roomId,
-    required this.senderId,
-    required this.body,
-    this.kind = 'chat',
-    required this.createdAt,
-    this.profile,
-  });
-
-  factory RoomMessage.fromJson(Map<String, dynamic> json) {
-    Profile? profile;
-    final p = json['profiles'];
-    if (p is Map<String, dynamic>) {
-      profile = Profile.fromJson(p);
-    } else if (p is List && p.isNotEmpty && p[0] is Map<String, dynamic>) {
-      profile = Profile.fromJson(p[0] as Map<String, dynamic>);
-    }
-    return RoomMessage(
-      id: json['id'] as String,
-      roomId: json['room_id'] as String,
-      senderId: json['sender_id'] as String,
-      body: json['body'] as String,
-      kind: json['kind'] as String? ?? 'chat',
-      createdAt: json['created_at'] as String? ?? '',
-      profile: profile,
-    );
-  }
-}
-
-class MeetingNote {
-  final String id;
-  final String roomId;
-  final String authorId;
-  final String noteType;
-  final String body;
-  final bool isDone;
-  final String createdAt;
-  final Profile? profile;
-
-  MeetingNote({
-    required this.id,
-    required this.roomId,
-    required this.authorId,
-    required this.noteType,
-    required this.body,
-    this.isDone = false,
-    required this.createdAt,
-    this.profile,
-  });
-
-  factory MeetingNote.fromJson(Map<String, dynamic> json) {
-    Profile? profile;
-    final p = json['profiles'];
-    if (p is Map<String, dynamic>) {
-      profile = Profile.fromJson(p);
-    } else if (p is List && p.isNotEmpty && p[0] is Map<String, dynamic>) {
-      profile = Profile.fromJson(p[0] as Map<String, dynamic>);
-    }
-    return MeetingNote(
-      id: json['id'] as String,
-      roomId: json['room_id'] as String,
-      authorId: json['author_id'] as String,
-      noteType: json['note_type'] as String,
-      body: json['body'] as String,
-      isDone: json['is_done'] as bool? ?? false,
-      createdAt: json['created_at'] as String? ?? '',
-      profile: profile,
-    );
-  }
-}
-
-class GameSession {
-  final String id;
-  final String roomId;
-  final String hostId;
-  final String gameType;
-  final String title;
-  final Map<String, dynamic> players;
-  final Map<String, dynamic> state;
-  final bool isActive;
-  final String createdAt;
-
-  GameSession({
-    required this.id,
-    required this.roomId,
-    required this.hostId,
-    required this.gameType,
-    required this.title,
-    required this.players,
-    required this.state,
-    this.isActive = true,
-    required this.createdAt,
-  });
-
-  factory GameSession.fromJson(Map<String, dynamic> json) => GameSession(
-    id: json['id'] as String,
-    roomId: json['room_id'] as String,
-    hostId: json['host_id'] as String,
-    gameType: json['game_type'] as String,
-    title: json['title'] as String? ?? '',
-    players: Map<String, dynamic>.from((json['players'] as Map?) ?? const {}),
-    state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
-    isActive: json['is_active'] as bool? ?? true,
+        const [],
+    status: json['status'] as String? ?? 'online',
     createdAt: json['created_at'] as String? ?? '',
   );
 }
@@ -251,7 +49,7 @@ class Friendship {
   final String status;
   final String createdAt;
 
-  Friendship({
+  const Friendship({
     required this.id,
     required this.requesterId,
     required this.addresseeId,
@@ -268,20 +66,73 @@ class Friendship {
   );
 }
 
-class ConversationSummary {
+class Conversation {
   final String id;
-  final String title;
-  final List<Profile> members;
-  final Profile? other;
-  final String lastMessage;
+  final String? title;
+  final bool isGroup;
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
 
-  ConversationSummary({
+  const Conversation({
     required this.id,
-    required this.title,
-    required this.members,
-    this.other,
-    this.lastMessage = 'Conversation started',
+    this.title,
+    required this.isGroup,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
   });
+
+  factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
+    id: json['id'] as String,
+    title: json['title'] as String?,
+    isGroup: json['is_group'] as bool? ?? false,
+    createdBy: json['created_by'] as String,
+    createdAt: json['created_at'] as String? ?? '',
+    updatedAt: json['updated_at'] as String? ?? '',
+  );
+}
+
+class ConversationMember {
+  final String conversationId;
+  final String userId;
+  final String joinedAt;
+
+  const ConversationMember({
+    required this.conversationId,
+    required this.userId,
+    required this.joinedAt,
+  });
+
+  factory ConversationMember.fromJson(Map<String, dynamic> json) =>
+      ConversationMember(
+        conversationId: json['conversation_id'] as String,
+        userId: json['user_id'] as String,
+        joinedAt: json['joined_at'] as String? ?? '',
+      );
+}
+
+class ConversationSummary {
+  final Conversation conversation;
+  final List<Profile> members;
+  final DirectMessage? lastMessage;
+
+  const ConversationSummary({
+    required this.conversation,
+    required this.members,
+    this.lastMessage,
+  });
+
+  String titleFor(String currentUserId) {
+    if (conversation.isGroup) {
+      final clean = conversation.title?.trim();
+      return clean == null || clean.isEmpty ? 'Group chat' : clean;
+    }
+    final other = members
+        .where((member) => member.id != currentUserId)
+        .firstOrNull;
+    return other?.fullName ?? 'Conversation';
+  }
 }
 
 class DirectMessage {
@@ -291,7 +142,7 @@ class DirectMessage {
   final String body;
   final String createdAt;
 
-  DirectMessage({
+  const DirectMessage({
     required this.id,
     required this.conversationId,
     required this.senderId,
@@ -304,6 +155,204 @@ class DirectMessage {
     conversationId: json['conversation_id'] as String,
     senderId: json['sender_id'] as String,
     body: json['body'] as String,
+    createdAt: json['created_at'] as String? ?? '',
+  );
+}
+
+class SocialPost {
+  final String id;
+  final String authorId;
+  final String caption;
+  final String? imageUrl;
+  final String? sharedPostId;
+  final String createdAt;
+  final String updatedAt;
+
+  const SocialPost({
+    required this.id,
+    required this.authorId,
+    required this.caption,
+    this.imageUrl,
+    this.sharedPostId,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory SocialPost.fromJson(Map<String, dynamic> json) => SocialPost(
+    id: json['id'] as String,
+    authorId: json['author_id'] as String,
+    caption: json['caption'] as String? ?? '',
+    imageUrl: json['image_url'] as String?,
+    sharedPostId: json['shared_post_id'] as String?,
+    createdAt: json['created_at'] as String? ?? '',
+    updatedAt: json['updated_at'] as String? ?? '',
+  );
+}
+
+class PostComment {
+  final String id;
+  final String postId;
+  final String authorId;
+  final String body;
+  final String createdAt;
+
+  const PostComment({
+    required this.id,
+    required this.postId,
+    required this.authorId,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory PostComment.fromJson(Map<String, dynamic> json) => PostComment(
+    id: json['id'] as String,
+    postId: json['post_id'] as String,
+    authorId: json['author_id'] as String,
+    body: json['body'] as String,
+    createdAt: json['created_at'] as String? ?? '',
+  );
+}
+
+class PostLike {
+  final String postId;
+  final String userId;
+
+  const PostLike({required this.postId, required this.userId});
+
+  factory PostLike.fromJson(Map<String, dynamic> json) => PostLike(
+    postId: json['post_id'] as String,
+    userId: json['user_id'] as String,
+  );
+}
+
+class PostShare {
+  final String id;
+  final String postId;
+  final String userId;
+
+  const PostShare({
+    required this.id,
+    required this.postId,
+    required this.userId,
+  });
+
+  factory PostShare.fromJson(Map<String, dynamic> json) => PostShare(
+    id: json['id'] as String,
+    postId: json['post_id'] as String,
+    userId: json['user_id'] as String,
+  );
+}
+
+class GameSession {
+  final String id;
+  final String hostId;
+  final String gameType;
+  final String mode;
+  final int maxPlayers;
+  final String inviteCode;
+  final String status;
+  final String? currentSeat;
+  final Map<String, dynamic> state;
+  final String? winnerId;
+  final String createdAt;
+
+  const GameSession({
+    required this.id,
+    required this.hostId,
+    required this.gameType,
+    required this.mode,
+    required this.maxPlayers,
+    required this.inviteCode,
+    required this.status,
+    this.currentSeat,
+    required this.state,
+    this.winnerId,
+    required this.createdAt,
+  });
+
+  factory GameSession.fromJson(Map<String, dynamic> json) => GameSession(
+    id: json['id'] as String,
+    hostId: json['host_id'] as String,
+    gameType: json['game_type'] as String,
+    mode: json['mode'] as String? ?? 'friends',
+    maxPlayers: json['max_players'] as int? ?? 2,
+    inviteCode: json['invite_code'] as String? ?? '',
+    status: json['status'] as String? ?? 'waiting',
+    currentSeat: json['current_seat'] as String?,
+    state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
+    winnerId: json['winner_id'] as String?,
+    createdAt: json['created_at'] as String? ?? '',
+  );
+}
+
+class GamePlayer {
+  final String gameId;
+  final String userId;
+  final String seat;
+  final String? displayColor;
+
+  const GamePlayer({
+    required this.gameId,
+    required this.userId,
+    required this.seat,
+    this.displayColor,
+  });
+
+  factory GamePlayer.fromJson(Map<String, dynamic> json) => GamePlayer(
+    gameId: json['game_id'] as String,
+    userId: json['user_id'] as String,
+    seat: json['seat'] as String,
+    displayColor: json['display_color'] as String?,
+  );
+}
+
+class GameInvite {
+  final String id;
+  final String gameId;
+  final String invitedBy;
+  final String invitedUserId;
+  final String status;
+
+  const GameInvite({
+    required this.id,
+    required this.gameId,
+    required this.invitedBy,
+    required this.invitedUserId,
+    required this.status,
+  });
+
+  factory GameInvite.fromJson(Map<String, dynamic> json) => GameInvite(
+    id: json['id'] as String,
+    gameId: json['game_id'] as String,
+    invitedBy: json['invited_by'] as String,
+    invitedUserId: json['invited_user_id'] as String,
+    status: json['status'] as String? ?? 'pending',
+  );
+}
+
+class CallSession {
+  final String id;
+  final String conversationId;
+  final String callerId;
+  final String callType;
+  final String status;
+  final String createdAt;
+
+  const CallSession({
+    required this.id,
+    required this.conversationId,
+    required this.callerId,
+    required this.callType,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory CallSession.fromJson(Map<String, dynamic> json) => CallSession(
+    id: json['id'] as String,
+    conversationId: json['conversation_id'] as String,
+    callerId: json['caller_id'] as String,
+    callType: json['call_type'] as String,
+    status: json['status'] as String? ?? 'ringing',
     createdAt: json['created_at'] as String? ?? '',
   );
 }

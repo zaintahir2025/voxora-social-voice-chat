@@ -25,7 +25,9 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Voxora uses the microphone for live room voice calls and meetings.</string>
+	<string>Voxora uses the microphone for friend audio and video calls.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Voxora uses the camera for friend video calls.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
