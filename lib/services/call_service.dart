@@ -235,10 +235,7 @@ class FriendCallController extends ChangeNotifier {
 
     final peer = await createPeerConnection({
       'sdpSemantics': 'unified-plan',
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-        {'urls': 'stun:global.stun.twilio.com:3478'},
-      ],
+      'iceServers': _iceServers(),
     });
 
     final stream = _localStream;
@@ -339,6 +336,22 @@ class FriendCallController extends ChangeNotifier {
     'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': video},
     'optional': [],
   };
+
+  List<Map<String, dynamic>> _iceServers() {
+    const turnUrl = String.fromEnvironment('WEBRTC_TURN_URL');
+    const turnUsername = String.fromEnvironment('WEBRTC_TURN_USERNAME');
+    const turnCredential = String.fromEnvironment('WEBRTC_TURN_CREDENTIAL');
+    return [
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:global.stun.twilio.com:3478'},
+      if (turnUrl.isNotEmpty)
+        {
+          'urls': turnUrl,
+          if (turnUsername.isNotEmpty) 'username': turnUsername,
+          if (turnCredential.isNotEmpty) 'credential': turnCredential,
+        },
+    ];
+  }
 
   Future<void> _sendSignal(
     String type, {
