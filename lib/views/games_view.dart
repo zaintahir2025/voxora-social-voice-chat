@@ -39,7 +39,14 @@ class _GamesViewState extends State<GamesView> {
 
     final sidebar = _sidebar(app, bot);
     final board = selectedBot != null
-        ? _GameStage.bot(game: selectedBot)
+        ? _GameStage.bot(
+            game: selectedBot,
+            onBotGameLeft: () {
+              if (mounted) {
+                setState(() => _selectedBotId = bot.selectedGameId);
+              }
+            },
+          )
         : _GameStage.friend(game: app.activeGame);
 
     if (wide) {
@@ -166,7 +173,13 @@ class _GamesViewState extends State<GamesView> {
                     trailing: IconButton(
                       tooltip: 'Delete game',
                       icon: const Icon(Icons.close),
-                      onPressed: () => bot.deleteGame(game.id),
+                      onPressed: () {
+                        final wasSelected = _selectedBotId == game.id;
+                        bot.deleteGame(game.id);
+                        if (wasSelected) {
+                          setState(() => _selectedBotId = bot.selectedGameId);
+                        }
+                      },
                     ),
                     onTap: () {
                       bot.selectGame(game.id);
@@ -435,17 +448,20 @@ class _GameSetupDialogState extends State<_GameSetupDialog> {
 class _GameStage extends StatelessWidget {
   final GameSession? friendGame;
   final BotGame? botGame;
+  final VoidCallback? onBotGameLeft;
 
   const _GameStage.friend({required GameSession? game})
     : friendGame = game,
-      botGame = null;
+      botGame = null,
+      onBotGameLeft = null;
 
-  const _GameStage.bot({required BotGame game})
+  const _GameStage.bot({required BotGame game, this.onBotGameLeft})
     : botGame = game,
       friendGame = null;
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
     final gameType = botGame?.gameType ?? friendGame?.gameType;
     if (gameType == null) {
       return const EmptyState(
@@ -459,37 +475,55 @@ class _GameStage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CountChip(
-                icon: Icons.sports_esports_outlined,
-                label: gameTitles[gameType] ?? gameType,
-              ),
-              const SizedBox(width: 8),
-              CountChip(
-                icon: botGame == null
-                    ? Icons.people_outline
-                    : Icons.smart_toy_outlined,
-                label: botGame == null ? 'Friends' : 'Computer',
-                color: botGame == null
-                    ? VoxoraColors.teal
-                    : VoxoraColors.orange,
-              ),
-              const Spacer(),
-              ActionIconButton(
-                icon: Icons.menu_book_outlined,
-                tooltip: 'Rules and guide',
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (_) => _GuideDialog(type: gameType),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    CountChip(
+                      icon: Icons.sports_esports_outlined,
+                      label: gameTitles[gameType] ?? gameType,
+                    ),
+                    CountChip(
+                      icon: botGame == null
+                          ? Icons.people_outline
+                          : Icons.smart_toy_outlined,
+                      label: botGame == null ? 'Friends' : 'Computer',
+                      color: botGame == null
+                          ? VoxoraColors.teal
+                          : VoxoraColors.orange,
+                    ),
+                  ],
                 ),
               ),
-              ActionIconButton(
-                icon: Icons.school_outlined,
-                tooltip: 'Tutorial',
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (_) => _TutorialDialog(type: gameType),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ActionIconButton(
+                    icon: Icons.menu_book_outlined,
+                    tooltip: 'Rules and guide',
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => _GuideDialog(type: gameType),
+                    ),
+                  ),
+                  ActionIconButton(
+                    icon: Icons.school_outlined,
+                    tooltip: 'Tutorial',
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => _TutorialDialog(type: gameType),
+                    ),
+                  ),
+                  ActionIconButton(
+                    icon: Icons.logout,
+                    tooltip: 'Leave game',
+                    color: Theme.of(context).colorScheme.error,
+                    onPressed: () => _confirmLeaveGame(context, app),
+                  ),
+                ],
               ),
             ],
           ),
@@ -516,6 +550,45 @@ class _GameStage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmLeaveGame(BuildContext context, AppProvider app) async {
+    final isHost = friendGame != null && app.profile?.id == friendGame!.hostId;
+    final title = botGame != null
+        ? 'Leave computer game?'
+        : isHost
+        ? 'Close this game?'
+        : 'Leave this game?';
+    final body = botGame != null
+        ? 'This removes the local game from your computer games list.'
+        : isHost
+        ? 'Because you are the host, leaving will close this game for everyone.'
+        : 'You will be removed from this friend game.';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.logout),
+            label: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    if (botGame != null) {
+      context.read<BotGameProvider>().deleteGame(botGame!.id);
+      onBotGameLeft?.call();
+      return;
+    }
+    await context.read<AppProvider>().leaveFriendGame(friendGame!);
   }
 }
 

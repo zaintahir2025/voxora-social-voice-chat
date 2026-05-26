@@ -108,7 +108,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<PostComment> get comments => _comments;
   List<PostLike> get likes => _likes;
   List<PostShare> get shares => _shares;
-  List<GameSession> get gameSessions => _gameSessions;
+  List<GameSession> get gameSessions => _visibleGameSessions();
   List<GamePlayer> get gamePlayers => _gamePlayers;
   List<GameInvite> get gameInvites => _gameInvites;
   List<CallSession> get callSessions => _callSessions;
@@ -182,8 +182,8 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   GameSession? get activeGame =>
-      _gameSessions.where((game) => game.id == _activeGameId).firstOrNull ??
-      _gameSessions.firstOrNull;
+      gameSessions.where((game) => game.id == _activeGameId).firstOrNull ??
+      gameSessions.firstOrNull;
 
   Profile? get viewedProfile =>
       _profiles
@@ -487,10 +487,11 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           )) {
         _activeConversationId = _conversations.firstOrNull?.conversation.id;
       }
-      _activeGameId ??= _gameSessions.firstOrNull?.id;
+      final visibleGames = _visibleGameSessions();
+      _activeGameId ??= visibleGames.firstOrNull?.id;
       if (_activeGameId != null &&
-          !_gameSessions.any((game) => game.id == _activeGameId)) {
-        _activeGameId = _gameSessions.firstOrNull?.id;
+          !visibleGames.any((game) => game.id == _activeGameId)) {
+        _activeGameId = visibleGames.firstOrNull?.id;
       }
       _viewedProfileId ??= _profile?.id;
       _dataError = '';
@@ -1652,6 +1653,30 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<GamePlayer> playersForGame(String gameId) =>
       _gamePlayers.where((player) => player.gameId == gameId).toList();
 
+  List<GameSession> _visibleGameSessions() {
+    final myId = _profile?.id;
+    if (myId == null) return const [];
+    final joinedGameIds = _gamePlayers
+        .where((player) => player.userId == myId)
+        .map((player) => player.gameId)
+        .toSet();
+    final invitedGameIds = _gameInvites
+        .where(
+          (invite) =>
+              invite.invitedUserId == myId && invite.status == 'pending',
+        )
+        .map((invite) => invite.gameId)
+        .toSet();
+    return _gameSessions
+        .where(
+          (game) =>
+              game.hostId == myId ||
+              joinedGameIds.contains(game.id) ||
+              invitedGameIds.contains(game.id),
+        )
+        .toList();
+  }
+
   GamePlayer? myPlayerForGame(String gameId) {
     final myId = _profile?.id;
     if (myId == null) return null;
@@ -1761,6 +1786,70 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         .eq('invited_user_id', _profile!.id);
     _activeGameId = game.id;
     await refresh();
+  }
+
+  Future<void> leaveFriendGame(GameSession game) async {
+    if (_profile == null) return;
+    final myId = _profile!.id;
+    final mine = myPlayerForGame(game.id);
+    final isHost = game.hostId == myId;
+
+    if (isHost) {
+      await _sb.from('game_sessions').delete().eq('id', game.id);
+      if (_activeGameId == game.id) _activeGameId = null;
+      await refresh();
+      _showNotice('You left and closed the game.');
+      return;
+    }
+
+    if (mine == null) {
+      await _sb
+          .from('game_invites')
+          .update({'status': 'declined'})
+          .eq('game_id', game.id)
+          .eq('invited_user_id', myId);
+      if (_activeGameId == game.id) _activeGameId = null;
+      await refresh();
+      _showNotice('Game invite declined.');
+      return;
+    }
+
+    final remainingPlayers = playersForGame(
+      game.id,
+    ).where((player) => player.userId != myId).toList();
+
+    if (game.status == 'active') {
+      final state = Map<String, dynamic>.from(game.state)
+        ..['leftSeat'] = mine.seat
+        ..['endedReason'] = 'player_left';
+      final winner = remainingPlayers.length == 1
+          ? remainingPlayers.first
+          : null;
+      if (winner != null) state['winner'] = winner.seat;
+      await _sb
+          .from('game_sessions')
+          .update({
+            'status': 'finished',
+            'current_seat': winner?.seat,
+            'winner_id': winner?.userId,
+            'state': state,
+          })
+          .eq('id', game.id);
+    }
+
+    await _sb
+        .from('game_players')
+        .delete()
+        .eq('game_id', game.id)
+        .eq('user_id', myId);
+    await _sb
+        .from('game_invites')
+        .update({'status': 'declined'})
+        .eq('game_id', game.id)
+        .eq('invited_user_id', myId);
+    if (_activeGameId == game.id) _activeGameId = null;
+    await refresh();
+    _showNotice('You left the game.');
   }
 
   Future<void> updateGame(GameSession game, Map<String, dynamic> patch) async {
