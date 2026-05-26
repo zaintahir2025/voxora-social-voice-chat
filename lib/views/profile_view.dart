@@ -18,7 +18,8 @@ class _ProfileViewState extends State<ProfileView> {
   final _bio = TextEditingController();
   final _interests = TextEditingController();
   String? _loadedProfileId;
-  bool _uploading = false;
+  bool _uploadingAvatar = false;
+  bool _uploadingCover = false;
 
   @override
   void dispose() {
@@ -68,6 +69,8 @@ class _ProfileViewState extends State<ProfileView> {
     int postCount,
   ) {
     final scheme = Theme.of(context).colorScheme;
+    final showStatus =
+        mine || app.friendshipWith(person.id)?.status == 'accepted';
     return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
@@ -78,15 +81,39 @@ class _ProfileViewState extends State<ProfileView> {
             width: double.infinity,
             decoration: BoxDecoration(color: scheme.surfaceContainerHighest),
             clipBehavior: Clip.antiAlias,
-            child: person.coverUrl == null || person.coverUrl!.isEmpty
-                ? Center(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (person.coverUrl == null || person.coverUrl!.isEmpty)
+                  Center(
                     child: Icon(
                       Icons.landscape_outlined,
                       color: scheme.primary,
                       size: 42,
                     ),
                   )
-                : Image.network(person.coverUrl!, fit: BoxFit.cover),
+                else
+                  Image.network(person.coverUrl!, fit: BoxFit.cover),
+                if (mine)
+                  Positioned(
+                    right: 14,
+                    bottom: 14,
+                    child: FilledButton.icon(
+                      onPressed: _uploadingCover
+                          ? null
+                          : () => _upload(app, avatar: false),
+                      icon: _uploadingCover
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.add_photo_alternate_outlined),
+                      label: Text(_uploadingCover ? 'Uploading' : 'Edit cover'),
+                    ),
+                  ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -95,10 +122,35 @@ class _ProfileViewState extends State<ProfileView> {
               children: [
                 Transform.translate(
                   offset: const Offset(0, -42),
-                  child: UserAvatar(
-                    url: person.avatarUrl,
-                    size: 92,
-                    online: person.status == 'online',
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      UserAvatar(
+                        url: person.avatarUrl,
+                        size: 92,
+                        online: person.status == 'online',
+                      ),
+                      if (mine)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: IconButton.filled(
+                            tooltip: 'Edit profile picture',
+                            onPressed: _uploadingAvatar
+                                ? null
+                                : () => _upload(app, avatar: true),
+                            icon: _uploadingAvatar
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.photo_camera_outlined),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Transform.translate(
@@ -118,6 +170,10 @@ class _ProfileViewState extends State<ProfileView> {
                             icon: Icons.photo_library_outlined,
                             label: '$postCount posts',
                           ),
+                          if (showStatus) ...[
+                            const SizedBox(width: 8),
+                            UserStatusChip(status: person.status),
+                          ],
                         ],
                       ),
                       Text(
@@ -238,16 +294,30 @@ class _ProfileViewState extends State<ProfileView> {
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: _uploading ? null : () => _upload(app, avatar: true),
-                icon: const Icon(Icons.account_circle_outlined),
-                label: const Text('Avatar'),
+                onPressed: _uploadingAvatar
+                    ? null
+                    : () => _upload(app, avatar: true),
+                icon: _uploadingAvatar
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.account_circle_outlined),
+                label: const Text('Change profile photo'),
               ),
               OutlinedButton.icon(
-                onPressed: _uploading
+                onPressed: _uploadingCover
                     ? null
                     : () => _upload(app, avatar: false),
-                icon: const Icon(Icons.panorama_outlined),
-                label: const Text('Cover'),
+                icon: _uploadingCover
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.panorama_outlined),
+                label: const Text('Change cover photo'),
               ),
             ],
           ),
@@ -279,7 +349,13 @@ class _ProfileViewState extends State<ProfileView> {
     );
     final file = await openFile(acceptedTypeGroups: [group]);
     if (file == null) return;
-    setState(() => _uploading = true);
+    setState(() {
+      if (avatar) {
+        _uploadingAvatar = true;
+      } else {
+        _uploadingCover = true;
+      }
+    });
     try {
       final bytes = await file.readAsBytes();
       if (avatar) {
@@ -288,7 +364,15 @@ class _ProfileViewState extends State<ProfileView> {
         await app.uploadCover(bytes, file.name);
       }
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() {
+          if (avatar) {
+            _uploadingAvatar = false;
+          } else {
+            _uploadingCover = false;
+          }
+        });
+      }
     }
   }
 

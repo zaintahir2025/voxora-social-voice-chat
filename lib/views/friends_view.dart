@@ -26,6 +26,9 @@ class _FriendsViewState extends State<FriendsView> {
         )
         .toList();
     final pending = app.incomingRequests;
+    final onlineFriends = app.friends
+        .where((person) => person.status == 'online')
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,7 +41,7 @@ class _FriendsViewState extends State<FriendsView> {
                 icon: Icons.people_outline,
                 title: 'Friends',
                 subtitle:
-                    '${app.friends.length} friends, ${pending.length} requests',
+                    '${app.friends.length} friends, $onlineFriends online, ${pending.length} requests',
               ),
               TextField(
                 onChanged: (value) => setState(() => _query = value),
@@ -131,7 +134,7 @@ class _PersonTile extends StatelessWidget {
                 UserAvatar(
                   url: person.avatarUrl,
                   size: 54,
-                  online: person.status == 'online',
+                  online: accepted && person.status == 'online',
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -151,8 +154,7 @@ class _PersonTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (accepted)
-                  const CountChip(icon: Icons.check, label: 'Friend'),
+                if (accepted) UserStatusChip(status: person.status),
               ],
             ),
           ),

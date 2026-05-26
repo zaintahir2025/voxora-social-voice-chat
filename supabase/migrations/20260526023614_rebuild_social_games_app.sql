@@ -19,6 +19,7 @@ drop table if exists public.post_shares cascade;
 drop table if exists public.post_likes cascade;
 drop table if exists public.post_comments cascade;
 drop table if exists public.posts cascade;
+drop table if exists public.message_reads cascade;
 drop table if exists public.messages cascade;
 drop table if exists public.conversation_members cascade;
 drop table if exists public.conversations cascade;
@@ -86,6 +87,13 @@ create table public.messages (
   created_at timestamptz not null default now()
 );
 
+create table public.message_reads (
+  message_id uuid not null references public.messages(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (message_id, user_id)
+);
+
 create table public.posts (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles(id) on delete cascade,
@@ -100,10 +108,16 @@ create table public.posts (
 create table public.post_comments (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts(id) on delete cascade,
+  parent_comment_id uuid,
   author_id uuid not null references public.profiles(id) on delete cascade,
   body text not null check (char_length(body) between 1 and 1000),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (parent_comment_id is null or parent_comment_id <> id),
+  unique (id, post_id),
+  foreign key (parent_comment_id, post_id)
+    references public.post_comments (id, post_id)
+    on delete cascade
 );
 
 create table public.post_likes (
@@ -188,7 +202,9 @@ create table public.call_signals (
 create index profiles_handle_idx on public.profiles (handle);
 create index posts_recent_idx on public.posts (created_at desc, id desc);
 create index comments_post_idx on public.post_comments (post_id, created_at);
+create index comments_parent_idx on public.post_comments (post_id, parent_comment_id, created_at);
 create index messages_conversation_idx on public.messages (conversation_id, created_at);
+create index message_reads_user_idx on public.message_reads (user_id, read_at desc);
 create index conversations_updated_idx on public.conversations (updated_at desc);
 create index game_sessions_status_idx on public.game_sessions (status, created_at desc);
 create index game_sessions_invite_code_idx on public.game_sessions (invite_code);
@@ -342,6 +358,7 @@ alter table public.friendships enable row level security;
 alter table public.conversations enable row level security;
 alter table public.conversation_members enable row level security;
 alter table public.messages enable row level security;
+alter table public.message_reads enable row level security;
 alter table public.posts enable row level security;
 alter table public.post_comments enable row level security;
 alter table public.post_likes enable row level security;
@@ -414,6 +431,40 @@ using (app_private.is_conversation_member(conversation_id));
 create policy "Members send messages"
 on public.messages for insert to authenticated
 with check (sender_id = (select auth.uid()) and app_private.is_conversation_member(conversation_id));
+
+create policy "Conversation members view message reads"
+on public.message_reads for select to authenticated
+using (
+  exists (
+    select 1
+    from public.messages
+    where messages.id = message_reads.message_id
+      and app_private.is_conversation_member(messages.conversation_id)
+  )
+);
+create policy "Users mark own message reads"
+on public.message_reads for insert to authenticated
+with check (
+  user_id = (select auth.uid())
+  and exists (
+    select 1
+    from public.messages
+    where messages.id = message_reads.message_id
+      and app_private.is_conversation_member(messages.conversation_id)
+  )
+);
+create policy "Users update own message reads"
+on public.message_reads for update to authenticated
+using (user_id = (select auth.uid()))
+with check (
+  user_id = (select auth.uid())
+  and exists (
+    select 1
+    from public.messages
+    where messages.id = message_reads.message_id
+      and app_private.is_conversation_member(messages.conversation_id)
+  )
+);
 
 create policy "Posts are visible"
 on public.posts for select using (true);
@@ -607,6 +658,7 @@ alter table public.friendships replica identity full;
 alter table public.conversations replica identity full;
 alter table public.conversation_members replica identity full;
 alter table public.messages replica identity full;
+alter table public.message_reads replica identity full;
 alter table public.posts replica identity full;
 alter table public.post_comments replica identity full;
 alter table public.post_likes replica identity full;
@@ -641,6 +693,11 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.messages;
+exception when duplicate_object or undefined_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.message_reads;
 exception when duplicate_object or undefined_object then null;
 end $$;
 do $$

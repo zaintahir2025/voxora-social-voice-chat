@@ -11,7 +11,48 @@ import '../models/models.dart';
 
 enum AppView { feed, friends, messages, games, profile }
 
-class AppProvider extends ChangeNotifier {
+class AppNotification {
+  final String id;
+  final IconData icon;
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  final AppView view;
+  final String? conversationId;
+  final String? gameId;
+  final String? profileId;
+  final bool read;
+
+  const AppNotification({
+    required this.id,
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    required this.view,
+    this.conversationId,
+    this.gameId,
+    this.profileId,
+    this.read = false,
+  });
+
+  AppNotification copyWith({bool? read}) {
+    return AppNotification(
+      id: id,
+      icon: icon,
+      title: title,
+      body: body,
+      createdAt: createdAt,
+      view: view,
+      conversationId: conversationId,
+      gameId: gameId,
+      profileId: profileId,
+      read: read ?? this.read,
+    );
+  }
+}
+
+class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const _profileColumns =
       'id, email, full_name, handle, avatar_url, cover_url, bio, interests, status, created_at, updated_at';
 
@@ -24,6 +65,7 @@ class AppProvider extends ChangeNotifier {
   List<Friendship> _friendships = [];
   List<ConversationSummary> _conversations = [];
   List<DirectMessage> _messages = [];
+  List<MessageRead> _messageReads = [];
   List<SocialPost> _posts = [];
   List<PostComment> _comments = [];
   List<PostLike> _likes = [];
@@ -32,6 +74,8 @@ class AppProvider extends ChangeNotifier {
   List<GamePlayer> _gamePlayers = [];
   List<GameInvite> _gameInvites = [];
   List<CallSession> _callSessions = [];
+  List<CallParticipant> _callParticipants = [];
+  List<AppNotification> _notifications = [];
 
   AppView _view = AppView.feed;
   bool _loading = true;
@@ -47,6 +91,10 @@ class AppProvider extends ChangeNotifier {
   RealtimeChannel? _realtimeChannel;
   Timer? _refreshTimer;
   int _loadGeneration = 0;
+  int _notificationSerial = 0;
+  String? _presenceStatus;
+  final Set<String> _deliveredNotificationKeys = {};
+  final Set<String> _markingConversationsRead = {};
 
   Session? get session => _session;
   Profile? get profile => _profile;
@@ -54,6 +102,7 @@ class AppProvider extends ChangeNotifier {
   List<Friendship> get friendships => _friendships;
   List<ConversationSummary> get conversations => _conversations;
   List<DirectMessage> get messages => _messages;
+  List<MessageRead> get messageReads => _messageReads;
   List<SocialPost> get posts => _posts;
   List<PostComment> get comments => _comments;
   List<PostLike> get likes => _likes;
@@ -62,6 +111,8 @@ class AppProvider extends ChangeNotifier {
   List<GamePlayer> get gamePlayers => _gamePlayers;
   List<GameInvite> get gameInvites => _gameInvites;
   List<CallSession> get callSessions => _callSessions;
+  List<CallParticipant> get callParticipants => _callParticipants;
+  List<AppNotification> get notifications => _notifications;
   AppView get view => _view;
   bool get loading => _loading;
   bool get darkMode => _darkMode;
@@ -69,6 +120,8 @@ class AppProvider extends ChangeNotifier {
   String get notice => _notice;
   String get dataError => _dataError;
   String? get activeCallId => _activeCallId;
+  int get unreadNotificationCount =>
+      _notifications.where((item) => !item.read).length;
 
   ConversationSummary? get activeConversation =>
       _conversations
@@ -80,6 +133,28 @@ class AppProvider extends ChangeNotifier {
     final id = activeConversation?.conversation.id;
     if (id == null) return const [];
     return _messages.where((message) => message.conversationId == id).toList();
+  }
+
+  String readReceiptForMessage(
+    DirectMessage message,
+    List<Profile> conversationMembers,
+  ) {
+    final myId = _profile?.id;
+    if (myId == null || message.senderId != myId) return '';
+    final recipientIds = conversationMembers
+        .where((member) => member.id != myId)
+        .map((member) => member.id)
+        .toSet();
+    if (recipientIds.isEmpty) return 'Sent';
+    final readerIds = _messageReads
+        .where((read) => read.messageId == message.id)
+        .map((read) => read.userId)
+        .where(recipientIds.contains)
+        .toSet();
+    if (readerIds.isEmpty) return 'Sent';
+    if (recipientIds.length == 1) return 'Seen';
+    if (readerIds.length == recipientIds.length) return 'Read by all';
+    return 'Read by ${readerIds.length}';
   }
 
   GameSession? get activeGame =>
@@ -118,17 +193,42 @@ class AppProvider extends ChangeNotifier {
       .where((call) => call.status != 'ended' && call.status != 'missed')
       .toList();
 
+  CallSession? get incomingCall {
+    final myId = _profile?.id;
+    if (myId == null) return null;
+    return _callSessions
+        .where(
+          (call) =>
+              call.status == 'ringing' &&
+              call.callerId != myId &&
+              participantForCall(call.id, myId)?.status == 'ringing',
+        )
+        .firstOrNull;
+  }
+
   void init() {
+    WidgetsBinding.instance.addObserver(this);
     _session = _sb.auth.currentSession;
     if (_session == null) {
       _loading = false;
     } else {
+      unawaited(_setPresenceStatus('online'));
       unawaited(loadAppData(_session!.user.id));
       _subscribeRealtime(_session!.user.id);
     }
     _authSub = _sb.auth.onAuthStateChange.listen((data) {
+      final previousUserId = _session?.user.id;
       _session = data.session;
       if (_session == null) {
+        if (previousUserId != null) {
+          unawaited(
+            _setPresenceStatus(
+              'offline',
+              userId: previousUserId,
+              updateLocal: false,
+            ),
+          );
+        }
         _clearSession();
         _loading = false;
         _unsubscribeRealtime();
@@ -136,6 +236,7 @@ class AppProvider extends ChangeNotifier {
       } else {
         _loading = true;
         notifyListeners();
+        unawaited(_setPresenceStatus('online'));
         unawaited(loadAppData(_session!.user.id));
         _subscribeRealtime(_session!.user.id);
       }
@@ -144,10 +245,34 @@ class AppProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final userId = _session?.user.id;
+    if (userId != null) {
+      unawaited(
+        _setPresenceStatus('offline', userId: userId, updateLocal: false),
+      );
+    }
     _authSub?.cancel();
     _refreshTimer?.cancel();
     _unsubscribeRealtime();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_session == null) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_setPresenceStatus('online'));
+      return;
+    }
+    if (state == AppLifecycleState.inactive || state.name == 'hidden') {
+      unawaited(_setPresenceStatus('away'));
+      return;
+    }
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_setPresenceStatus('offline'));
+    }
   }
 
   void setView(AppView view) {
@@ -165,6 +290,20 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void markNotificationsRead() {
+    if (_notifications.every((item) => item.read)) return;
+    _notifications = [
+      for (final item in _notifications) item.copyWith(read: true),
+    ];
+    notifyListeners();
+  }
+
+  void clearNotifications() {
+    _notifications = [];
+    _deliveredNotificationKeys.clear();
+    notifyListeners();
+  }
+
   void viewProfile(String userId) {
     _viewedProfileId = userId;
     _view = AppView.profile;
@@ -175,6 +314,7 @@ class AppProvider extends ChangeNotifier {
     _activeConversationId = id;
     _view = AppView.messages;
     notifyListeners();
+    unawaited(markConversationRead(id));
   }
 
   void selectGame(String id) {
@@ -183,9 +323,56 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void openNotification(AppNotification notification) {
+    _notifications = [
+      for (final item in _notifications)
+        item.id == notification.id ? item.copyWith(read: true) : item,
+    ];
+    if (notification.conversationId != null) {
+      _activeConversationId = notification.conversationId;
+    }
+    if (notification.gameId != null) {
+      _activeGameId = notification.gameId;
+    }
+    if (notification.profileId != null) {
+      _viewedProfileId = notification.profileId;
+    }
+    _view = notification.view;
+    notifyListeners();
+  }
+
   void _showNotice(String message) {
     _notice = message;
     notifyListeners();
+  }
+
+  Future<void> _setPresenceStatus(
+    String status, {
+    String? userId,
+    bool updateLocal = true,
+  }) async {
+    final targetUserId = userId ?? _session?.user.id ?? _profile?.id;
+    if (targetUserId == null) return;
+    if (userId == null && _presenceStatus == status) return;
+    if (userId == null) _presenceStatus = status;
+
+    try {
+      await _sb
+          .from('profiles')
+          .update({'status': status})
+          .eq('id', targetUserId);
+      if (!updateLocal) return;
+      if (_profile?.id == targetUserId) {
+        _profile = _profile!.copyWith(status: status);
+      }
+      _profiles = [
+        for (final person in _profiles)
+          person.id == targetUserId ? person.copyWith(status: status) : person,
+      ];
+      notifyListeners();
+    } catch (_) {
+      if (userId == null) _presenceStatus = null;
+    }
   }
 
   Future<void> loadAppData(String userId, {bool showLoader = true}) async {
@@ -343,6 +530,7 @@ class AppProvider extends ChangeNotifier {
     if (ids.isEmpty) {
       _conversations = [];
       _messages = [];
+      _messageReads = [];
       return;
     }
 
@@ -373,6 +561,7 @@ class AppProvider extends ChangeNotifier {
     _messages = (results[2] as List)
         .map((item) => DirectMessage.fromJson(item))
         .toList();
+    await _loadMessageReads();
 
     _conversations = conversationRows.map((conversation) {
       final memberIds = memberRows
@@ -393,10 +582,27 @@ class AppProvider extends ChangeNotifier {
     }).toList();
   }
 
+  Future<void> _loadMessageReads() async {
+    final messageIds = _messages.map((message) => message.id).toList();
+    if (messageIds.isEmpty) {
+      _messageReads = [];
+      return;
+    }
+    final rows = await _sb
+        .from('message_reads')
+        .select()
+        .inFilter('message_id', messageIds)
+        .limit(4000);
+    _messageReads = (rows as List)
+        .map((item) => MessageRead.fromJson(item))
+        .toList();
+  }
+
   Future<void> _loadCalls() async {
     final ids = _conversations.map((item) => item.conversation.id).toList();
     if (ids.isEmpty) {
       _callSessions = [];
+      _callParticipants = [];
       return;
     }
     final rows = await _sb
@@ -407,6 +613,18 @@ class AppProvider extends ChangeNotifier {
         .limit(50);
     _callSessions = (rows as List)
         .map((item) => CallSession.fromJson(item))
+        .toList();
+    final callIds = _callSessions.map((call) => call.id).toList();
+    if (callIds.isEmpty) {
+      _callParticipants = [];
+      return;
+    }
+    final participants = await _sb
+        .from('call_participants')
+        .select()
+        .inFilter('call_id', callIds);
+    _callParticipants = (participants as List)
+        .map((item) => CallParticipant.fromJson(item))
         .toList();
   }
 
@@ -419,6 +637,7 @@ class AppProvider extends ChangeNotifier {
       'conversations',
       'conversation_members',
       'messages',
+      'message_reads',
       'posts',
       'post_comments',
       'post_likes',
@@ -434,15 +653,410 @@ class AppProvider extends ChangeNotifier {
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: table,
-        callback: (_) => _scheduleRefresh(),
+        callback: (payload) {
+          _handleRealtimeNotification(payload, userId);
+          _scheduleRefresh();
+        },
       );
     }
     _realtimeChannel = channel.subscribe();
   }
 
+  void _handleRealtimeNotification(
+    PostgresChangePayload payload,
+    String userId,
+  ) {
+    final record = payload.eventType == PostgresChangeEvent.delete
+        ? payload.oldRecord
+        : payload.newRecord;
+    if (record.isEmpty) return;
+
+    if (payload.eventType == PostgresChangeEvent.insert) {
+      switch (payload.table) {
+        case 'messages':
+          _notifyNewMessage(record, userId, payload.commitTimestamp);
+          break;
+        case 'game_invites':
+          _notifyGameInvite(record, userId, payload.commitTimestamp);
+          break;
+        case 'post_comments':
+          _notifyPostComment(record, userId, payload.commitTimestamp);
+          break;
+        case 'post_likes':
+          _notifyPostReaction(
+            record,
+            userId,
+            payload.commitTimestamp,
+            reaction: 'liked',
+            icon: Icons.favorite_border,
+          );
+          break;
+        case 'post_shares':
+          _notifyPostReaction(
+            record,
+            userId,
+            payload.commitTimestamp,
+            reaction: 'shared',
+            icon: Icons.ios_share_outlined,
+          );
+          break;
+        case 'friendships':
+          _notifyFriendRequest(record, userId, payload.commitTimestamp);
+          break;
+        case 'call_sessions':
+          _notifyIncomingCall(record, userId, payload.commitTimestamp);
+          break;
+        case 'conversation_members':
+          _notifyConversationInvite(record, userId, payload.commitTimestamp);
+          break;
+      }
+      return;
+    }
+
+    if (payload.eventType == PostgresChangeEvent.update) {
+      switch (payload.table) {
+        case 'game_sessions':
+          _notifyGameUpdate(
+            record,
+            payload.oldRecord,
+            userId,
+            payload.commitTimestamp,
+          );
+          break;
+        case 'game_invites':
+          _notifyInviteAccepted(record, userId, payload.commitTimestamp);
+          break;
+        case 'friendships':
+          _notifyFriendAccepted(record, userId, payload.commitTimestamp);
+          break;
+      }
+    }
+  }
+
   void _unsubscribeRealtime() {
     unawaited(_realtimeChannel?.unsubscribe() ?? Future<void>.value());
     _realtimeChannel = null;
+  }
+
+  void _notifyNewMessage(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    final senderId = record['sender_id'] as String?;
+    final conversationId = record['conversation_id'] as String?;
+    if (senderId == null || senderId == userId || conversationId == null) {
+      return;
+    }
+    if (!_conversations.any((item) => item.conversation.id == conversationId)) {
+      return;
+    }
+
+    final sender = _displayName(senderId);
+    final body = (record['body'] as String? ?? '').trim();
+    _pushNotification(
+      key: 'message:${record['id']}',
+      icon: Icons.chat_bubble_outline,
+      title: 'New message from $sender',
+      body: _compact(body.isEmpty ? 'Sent you a message.' : body),
+      view: AppView.messages,
+      conversationId: conversationId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyGameInvite(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    if (record['invited_user_id'] != userId || record['status'] != 'pending') {
+      return;
+    }
+    final inviter = _displayName(record['invited_by'] as String?);
+    final gameId = record['game_id'] as String?;
+    final game = _gameSessions.where((item) => item.id == gameId).firstOrNull;
+    final gameName = gameTitles[game?.gameType] ?? 'game';
+    _pushNotification(
+      key: 'game_invite:${record['id']}',
+      icon: Icons.sports_esports_outlined,
+      title: 'New game invite',
+      body: '$inviter invited you to play $gameName.',
+      view: AppView.games,
+      gameId: gameId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyPostComment(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    final authorId = record['author_id'] as String?;
+    final postId = record['post_id'] as String?;
+    if (authorId == null || authorId == userId || postId == null) return;
+    final parentCommentId = record['parent_comment_id'] as String?;
+    if (parentCommentId != null) {
+      final parent = _comments
+          .where((item) => item.id == parentCommentId)
+          .firstOrNull;
+      if (parent?.authorId == userId) {
+        final author = _displayName(authorId);
+        final body = (record['body'] as String? ?? '').trim();
+        _pushNotification(
+          key: 'comment_reply:${record['id']}',
+          icon: Icons.reply_outlined,
+          title: '$author replied to your comment',
+          body: _compact(body.isEmpty ? 'Open your feed to view it.' : body),
+          view: AppView.feed,
+          timestamp: timestamp,
+        );
+        return;
+      }
+    }
+
+    final post = _posts.where((item) => item.id == postId).firstOrNull;
+    if (post?.authorId != userId) return;
+
+    final author = _displayName(authorId);
+    final body = (record['body'] as String? ?? '').trim();
+    _pushNotification(
+      key: 'post_comment:${record['id']}',
+      icon: Icons.mode_comment_outlined,
+      title: '$author commented on your post',
+      body: _compact(body.isEmpty ? 'Open your feed to view it.' : body),
+      view: AppView.feed,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyPostReaction(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp, {
+    required String reaction,
+    required IconData icon,
+  }) {
+    final actorId = record['user_id'] as String?;
+    final postId = record['post_id'] as String?;
+    if (actorId == null || actorId == userId || postId == null) return;
+    final post = _posts.where((item) => item.id == postId).firstOrNull;
+    if (post?.authorId != userId) return;
+
+    _pushNotification(
+      key: 'post_$reaction:$postId:$actorId',
+      icon: icon,
+      title: '${_displayName(actorId)} $reaction your post',
+      body: 'Open your feed to view the activity.',
+      view: AppView.feed,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyFriendRequest(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    if (record['addressee_id'] != userId || record['status'] != 'pending') {
+      return;
+    }
+    final requesterId = record['requester_id'] as String?;
+    _pushNotification(
+      key: 'friend_request:${record['id']}',
+      icon: Icons.person_add_alt_1_outlined,
+      title: 'New friend request',
+      body: '${_displayName(requesterId)} wants to connect.',
+      view: AppView.friends,
+      profileId: requesterId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyIncomingCall(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    final callerId = record['caller_id'] as String?;
+    final conversationId = record['conversation_id'] as String?;
+    final status = record['status'] as String?;
+    if (callerId == null ||
+        callerId == userId ||
+        conversationId == null ||
+        status != 'ringing') {
+      return;
+    }
+    if (!_conversations.any((item) => item.conversation.id == conversationId)) {
+      return;
+    }
+
+    final type = record['call_type'] as String? ?? 'voice';
+    _pushNotification(
+      key: 'call:${record['id']}',
+      icon: type == 'video' ? Icons.videocam_outlined : Icons.call_outlined,
+      title: 'Incoming $type call',
+      body: '${_displayName(callerId)} is calling you.',
+      view: AppView.messages,
+      conversationId: conversationId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyConversationInvite(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    final conversationId = record['conversation_id'] as String?;
+    if (record['user_id'] != userId || conversationId == null) return;
+    final conversation = _conversations
+        .where((item) => item.conversation.id == conversationId)
+        .firstOrNull;
+    if (conversation == null || conversation.conversation.createdBy == userId) {
+      return;
+    }
+    _pushNotification(
+      key: 'conversation_member:$conversationId:$userId',
+      icon: Icons.group_add_outlined,
+      title: 'Added to a conversation',
+      body: 'Open ${conversation.titleFor(userId)} to catch up.',
+      view: AppView.messages,
+      conversationId: conversationId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyGameUpdate(
+    Map<String, dynamic> record,
+    Map<String, dynamic> oldRecord,
+    String userId,
+    DateTime timestamp,
+  ) {
+    final gameId = record['id'] as String?;
+    if (gameId == null) return;
+    final player = _gamePlayers
+        .where((item) => item.gameId == gameId && item.userId == userId)
+        .firstOrNull;
+    if (player == null) return;
+
+    final status = record['status'] as String?;
+    final oldStatus = oldRecord['status'] as String?;
+    final currentSeat = record['current_seat'] as String?;
+    final oldSeat = oldRecord['current_seat'] as String?;
+    final gameName = gameTitles[record['game_type']] ?? 'game';
+
+    if (status == 'finished' && oldStatus != 'finished') {
+      final won = record['winner_id'] == userId;
+      _pushNotification(
+        key: 'game_finished:$gameId:${timestamp.toIso8601String()}',
+        icon: Icons.emoji_events_outlined,
+        title: won ? 'You won $gameName' : '$gameName finished',
+        body: won
+            ? 'Nice result. Open Games to review it.'
+            : 'Open Games to see the result.',
+        view: AppView.games,
+        gameId: gameId,
+        timestamp: timestamp,
+      );
+      return;
+    }
+
+    if (status == 'active' &&
+        currentSeat == player.seat &&
+        oldSeat != currentSeat) {
+      _pushNotification(
+        key: 'game_turn:$gameId:${timestamp.toIso8601String()}',
+        icon: Icons.touch_app_outlined,
+        title: 'Your turn in $gameName',
+        body: 'Open Games to make your move.',
+        view: AppView.games,
+        gameId: gameId,
+        timestamp: timestamp,
+      );
+    }
+  }
+
+  void _notifyInviteAccepted(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    if (record['invited_by'] != userId || record['status'] != 'accepted') {
+      return;
+    }
+    _pushNotification(
+      key: 'game_invite_accepted:${record['id']}',
+      icon: Icons.check_circle_outline,
+      title: 'Game invite accepted',
+      body:
+          '${_displayName(record['invited_user_id'] as String?)} joined your game.',
+      view: AppView.games,
+      gameId: record['game_id'] as String?,
+      timestamp: timestamp,
+    );
+  }
+
+  void _notifyFriendAccepted(
+    Map<String, dynamic> record,
+    String userId,
+    DateTime timestamp,
+  ) {
+    if (record['requester_id'] != userId || record['status'] != 'accepted') {
+      return;
+    }
+    final friendId = record['addressee_id'] as String?;
+    _pushNotification(
+      key: 'friend_accepted:${record['id']}',
+      icon: Icons.people_outline,
+      title: 'Friend request accepted',
+      body: '${_displayName(friendId)} is now your friend.',
+      view: AppView.friends,
+      profileId: friendId,
+      timestamp: timestamp,
+    );
+  }
+
+  void _pushNotification({
+    required String key,
+    required IconData icon,
+    required String title,
+    required String body,
+    required AppView view,
+    required DateTime timestamp,
+    String? conversationId,
+    String? gameId,
+    String? profileId,
+  }) {
+    if (_deliveredNotificationKeys.contains(key)) return;
+    _deliveredNotificationKeys.add(key);
+    final notification = AppNotification(
+      id: 'notification_${++_notificationSerial}',
+      icon: icon,
+      title: title,
+      body: body,
+      createdAt: timestamp,
+      view: view,
+      conversationId: conversationId,
+      gameId: gameId,
+      profileId: profileId,
+    );
+    _notifications = [notification, ..._notifications].take(40).toList();
+    _notice = body.trim().isEmpty ? title : '$title - $body';
+    notifyListeners();
+  }
+
+  String _displayName(String? userId) {
+    if (userId == null) return 'Someone';
+    if (_profile?.id == userId) return 'You';
+    return profileById(userId)?.fullName ?? 'Someone';
+  }
+
+  String _compact(String value) {
+    final clean = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.length <= 90) return clean;
+    return '${clean.substring(0, 87)}...';
   }
 
   void _scheduleRefresh() {
@@ -460,6 +1074,7 @@ class AppProvider extends ChangeNotifier {
     _friendships = [];
     _conversations = [];
     _messages = [];
+    _messageReads = [];
     _posts = [];
     _comments = [];
     _likes = [];
@@ -468,6 +1083,12 @@ class AppProvider extends ChangeNotifier {
     _gamePlayers = [];
     _gameInvites = [];
     _callSessions = [];
+    _callParticipants = [];
+    _notifications = [];
+    _deliveredNotificationKeys.clear();
+    _markingConversationsRead.clear();
+    _notificationSerial = 0;
+    _presenceStatus = null;
     _activeConversationId = null;
     _activeGameId = null;
     _viewedProfileId = null;
@@ -630,7 +1251,7 @@ class AppProvider extends ChangeNotifier {
       'image_url': url,
     });
     await refresh();
-    _showNotice('Post published.');
+    _showNotice('Post added.');
   }
 
   Future<void> editPost(SocialPost post, String caption) async {
@@ -667,10 +1288,15 @@ class AppProvider extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> addComment(SocialPost post, String body) async {
+  Future<void> addComment(
+    SocialPost post,
+    String body, {
+    PostComment? parentComment,
+  }) async {
     if (_profile == null || body.trim().isEmpty) return;
     await _sb.from('post_comments').insert({
       'post_id': post.id,
+      if (parentComment != null) 'parent_comment_id': parentComment.id,
       'author_id': _profile!.id,
       'body': body.trim(),
     });
@@ -715,6 +1341,17 @@ class AppProvider extends ChangeNotifier {
 
   List<PostComment> commentsForPost(String postId) =>
       _comments.where((comment) => comment.postId == postId).toList();
+
+  List<PostComment> topLevelCommentsForPost(String postId) => _comments
+      .where(
+        (comment) =>
+            comment.postId == postId && comment.parentCommentId == null,
+      )
+      .toList();
+
+  List<PostComment> repliesForComment(String commentId) => _comments
+      .where((comment) => comment.parentCommentId == commentId)
+      .toList();
 
   Profile? profileById(String? id) {
     if (id == null) return null;
@@ -845,6 +1482,51 @@ class AppProvider extends ChangeNotifier {
     await refresh();
   }
 
+  Future<void> markConversationRead(String conversationId) async {
+    final myId = _profile?.id;
+    if (myId == null || _markingConversationsRead.contains(conversationId)) {
+      return;
+    }
+    final readByMe = _messageReads
+        .where((read) => read.userId == myId)
+        .map((read) => read.messageId)
+        .toSet();
+    final unreadMessages = _messages
+        .where(
+          (message) =>
+              message.conversationId == conversationId &&
+              message.senderId != myId &&
+              !readByMe.contains(message.id),
+        )
+        .toList();
+    if (unreadMessages.isEmpty) return;
+
+    _markingConversationsRead.add(conversationId);
+    final now = DateTime.now().toIso8601String();
+    final rows = <Map<String, dynamic>>[
+      for (final message in unreadMessages)
+        {'message_id': message.id, 'user_id': myId, 'read_at': now},
+    ];
+    try {
+      await _sb
+          .from('message_reads')
+          .upsert(rows, onConflict: 'message_id,user_id');
+      final keys = rows
+          .map((row) => '${row['message_id']}:${row['user_id']}')
+          .toSet();
+      _messageReads = [
+        for (final read in _messageReads)
+          if (!keys.contains('${read.messageId}:${read.userId}')) read,
+        ...rows.map((row) => MessageRead.fromJson(row)),
+      ];
+      notifyListeners();
+    } catch (error) {
+      _showNotice(_friendlyError(error));
+    } finally {
+      _markingConversationsRead.remove(conversationId);
+    }
+  }
+
   Future<CallSession?> startCall(
     ConversationSummary conversation,
     String type,
@@ -881,6 +1563,68 @@ class AppProvider extends ChangeNotifier {
     return call;
   }
 
+  CallSession? callById(String callId) =>
+      _callSessions.where((call) => call.id == callId).firstOrNull;
+
+  CallParticipant? participantForCall(String callId, String userId) =>
+      _callParticipants
+          .where(
+            (participant) =>
+                participant.callId == callId && participant.userId == userId,
+          )
+          .firstOrNull;
+
+  Future<void> joinCall(CallSession call) async {
+    if (_profile == null) return;
+    final now = DateTime.now().toIso8601String();
+    await _sb
+        .from('call_participants')
+        .update({'status': 'joined', 'joined_at': now})
+        .eq('call_id', call.id)
+        .eq('user_id', _profile!.id);
+    if (call.callerId != _profile!.id && call.status == 'ringing') {
+      await _sb
+          .from('call_sessions')
+          .update({'status': 'active'})
+          .eq('id', call.id);
+    }
+    _activeCallId = call.id;
+    await refresh();
+  }
+
+  Future<void> declineCall(CallSession call) async {
+    if (_profile == null) return;
+    await _sb
+        .from('call_participants')
+        .update({'status': 'declined'})
+        .eq('call_id', call.id)
+        .eq('user_id', _profile!.id);
+
+    final rows = await _sb
+        .from('call_participants')
+        .select()
+        .eq('call_id', call.id);
+    final participants = (rows as List)
+        .map((item) => CallParticipant.fromJson(item))
+        .toList();
+    final hasOtherInvitee = participants.any(
+      (participant) =>
+          participant.userId != call.callerId &&
+          participant.userId != _profile!.id &&
+          (participant.status == 'ringing' || participant.status == 'joined'),
+    );
+    if (!hasOtherInvitee) {
+      await _sb
+          .from('call_sessions')
+          .update({
+            'status': 'ended',
+            'ended_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', call.id);
+    }
+    await refresh();
+  }
+
   Future<void> markCallActive(String callId) async {
     await _sb
         .from('call_sessions')
@@ -890,6 +1634,14 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> endCall(String callId) async {
+    final myId = _profile?.id;
+    if (myId != null) {
+      await _sb
+          .from('call_participants')
+          .update({'status': 'left'})
+          .eq('call_id', callId)
+          .eq('user_id', myId);
+    }
     await _sb
         .from('call_sessions')
         .update({

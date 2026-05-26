@@ -235,6 +235,7 @@ class MessageBubble extends StatelessWidget {
   final String body;
   final String createdAt;
   final bool mine;
+  final String? receipt;
 
   const MessageBubble({
     super.key,
@@ -242,6 +243,7 @@ class MessageBubble extends StatelessWidget {
     required this.body,
     required this.createdAt,
     required this.mine,
+    this.receipt,
   });
 
   @override
@@ -286,12 +288,34 @@ class MessageBubble extends StatelessWidget {
             ),
             if (time.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(
-                time,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: mine ? Colors.white70 : scheme.onSurfaceVariant,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (mine && (receipt?.isNotEmpty ?? false)) ...[
+                    const SizedBox(width: 7),
+                    Icon(
+                      receipt == 'Sent' ? Icons.done : Icons.done_all,
+                      size: 13,
+                      color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      receipt!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: mine ? Colors.white70 : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],
@@ -346,6 +370,34 @@ class CountChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class UserStatusChip extends StatelessWidget {
+  final String status;
+
+  const UserStatusChip({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.trim().toLowerCase();
+    return CountChip(
+      icon: normalized == 'online'
+          ? Icons.circle
+          : normalized == 'away'
+          ? Icons.schedule
+          : Icons.circle_outlined,
+      label: switch (normalized) {
+        'online' => 'Online',
+        'away' => 'Away',
+        _ => 'Offline',
+      },
+      color: switch (normalized) {
+        'online' => VoxoraColors.green,
+        'away' => VoxoraColors.amber,
+        _ => VoxoraColors.slate,
+      },
     );
   }
 }

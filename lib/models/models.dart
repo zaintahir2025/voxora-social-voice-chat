@@ -23,6 +23,21 @@ class Profile {
     required this.createdAt,
   });
 
+  Profile copyWith({String? status}) {
+    return Profile(
+      id: id,
+      email: email,
+      fullName: fullName,
+      handle: handle,
+      avatarUrl: avatarUrl,
+      coverUrl: coverUrl,
+      bio: bio,
+      interests: interests,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
+
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
     id: json['id'] as String,
     email: json['email'] as String?,
@@ -159,6 +174,24 @@ class DirectMessage {
   );
 }
 
+class MessageRead {
+  final String messageId;
+  final String userId;
+  final String readAt;
+
+  const MessageRead({
+    required this.messageId,
+    required this.userId,
+    required this.readAt,
+  });
+
+  factory MessageRead.fromJson(Map<String, dynamic> json) => MessageRead(
+    messageId: json['message_id'] as String,
+    userId: json['user_id'] as String,
+    readAt: json['read_at'] as String? ?? '',
+  );
+}
+
 class SocialPost {
   final String id;
   final String authorId;
@@ -192,6 +225,7 @@ class SocialPost {
 class PostComment {
   final String id;
   final String postId;
+  final String? parentCommentId;
   final String authorId;
   final String body;
   final String createdAt;
@@ -199,6 +233,7 @@ class PostComment {
   const PostComment({
     required this.id,
     required this.postId,
+    this.parentCommentId,
     required this.authorId,
     required this.body,
     required this.createdAt,
@@ -207,6 +242,7 @@ class PostComment {
   factory PostComment.fromJson(Map<String, dynamic> json) => PostComment(
     id: json['id'] as String,
     postId: json['post_id'] as String,
+    parentCommentId: json['parent_comment_id'] as String?,
     authorId: json['author_id'] as String,
     body: json['body'] as String,
     createdAt: json['created_at'] as String? ?? '',
@@ -355,4 +391,26 @@ class CallSession {
     status: json['status'] as String? ?? 'ringing',
     createdAt: json['created_at'] as String? ?? '',
   );
+}
+
+class CallParticipant {
+  final String callId;
+  final String userId;
+  final String status;
+  final String? joinedAt;
+
+  const CallParticipant({
+    required this.callId,
+    required this.userId,
+    required this.status,
+    this.joinedAt,
+  });
+
+  factory CallParticipant.fromJson(Map<String, dynamic> json) =>
+      CallParticipant(
+        callId: json['call_id'] as String,
+        userId: json['user_id'] as String,
+        status: json['status'] as String? ?? 'ringing',
+        joinedAt: json['joined_at'] as String?,
+      );
 }

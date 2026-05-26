@@ -20,6 +20,11 @@ Thumbs.db
 # Supabase local
 supabase/.temp/
 
+# Android signing material
+android/key.properties
+*.jks
+*.keystore
+
 # Misc
 *.log
 .env

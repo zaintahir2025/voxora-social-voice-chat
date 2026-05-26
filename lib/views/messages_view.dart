@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:provider/provider.dart';
@@ -209,6 +211,14 @@ class _MessagesViewState extends State<MessagesView> {
         .where((member) => member.id != currentUserId)
         .toList();
     final messages = app.messagesForActiveConversation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        context.read<AppProvider>().markConversationRead(
+          summary.conversation.id,
+        ),
+      );
+    });
     final liveCall = app.liveCalls
         .where((call) => call.conversationId == summary.conversation.id)
         .firstOrNull;
@@ -241,15 +251,41 @@ class _MessagesViewState extends State<MessagesView> {
                     ),
                   ),
                   if (liveCall != null)
-                    FilledButton.icon(
-                      onPressed: () => _openCall(app, liveCall),
-                      icon: Icon(
-                        liveCall.callType == 'video'
-                            ? Icons.videocam
-                            : Icons.call,
+                    if (liveCall.status == 'ringing' &&
+                        liveCall.callerId != currentUserId) ...[
+                      IconButton.filled(
+                        tooltip: 'Decline call',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onError,
+                        ),
+                        onPressed: () => app.declineCall(liveCall),
+                        icon: const Icon(Icons.call_end),
                       ),
-                      label: const Text('Join'),
-                    )
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () => _openCall(app, liveCall),
+                        icon: Icon(
+                          liveCall.callType == 'video'
+                              ? Icons.videocam
+                              : Icons.call,
+                        ),
+                        label: const Text('Answer'),
+                      ),
+                    ] else
+                      FilledButton.icon(
+                        onPressed: () => _openCall(app, liveCall),
+                        icon: Icon(
+                          liveCall.callType == 'video'
+                              ? Icons.videocam
+                              : Icons.call,
+                        ),
+                        label: Text(
+                          liveCall.status == 'ringing' ? 'Calling' : 'Join',
+                        ),
+                      )
                   else ...[
                     ActionIconButton(
                       icon: Icons.call_outlined,
@@ -280,6 +316,10 @@ class _MessagesViewState extends State<MessagesView> {
                     body: message.body,
                     createdAt: message.createdAt,
                     mine: message.senderId == currentUserId,
+                    receipt: app.readReceiptForMessage(
+                      message,
+                      summary.members,
+                    ),
                   );
                 },
               ),
@@ -332,21 +372,21 @@ class _MessagesViewState extends State<MessagesView> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _CallDialog(call: call),
+      builder: (_) => CallDialog(call: call),
     );
   }
 }
 
-class _CallDialog extends StatefulWidget {
+class CallDialog extends StatefulWidget {
   final CallSession call;
 
-  const _CallDialog({required this.call});
+  const CallDialog({super.key, required this.call});
 
   @override
-  State<_CallDialog> createState() => _CallDialogState();
+  State<CallDialog> createState() => _CallDialogState();
 }
 
-class _CallDialogState extends State<_CallDialog> {
+class _CallDialogState extends State<CallDialog> {
   late final FriendCallController _controller;
 
   @override
@@ -359,7 +399,13 @@ class _CallDialogState extends State<_CallDialog> {
       video: widget.call.callType == 'video',
     );
     _controller.addListener(_refresh);
-    _controller.start().then((_) => app.markCallActive(widget.call.id));
+    unawaited(_joinAndStart(app));
+  }
+
+  Future<void> _joinAndStart(AppProvider app) async {
+    await app.joinCall(widget.call);
+    if (!mounted) return;
+    await _controller.start();
   }
 
   @override
@@ -375,7 +421,17 @@ class _CallDialogState extends State<_CallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final app = context.read<AppProvider>();
+    final app = context.watch<AppProvider>();
+    final liveCall = app.callById(widget.call.id);
+    if (liveCall == null ||
+        liveCall.status == 'ended' ||
+        liveCall.status == 'missed') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+    }
     final video = widget.call.callType == 'video';
     return AlertDialog(
       title: Row(
@@ -432,6 +488,14 @@ class _CallDialogState extends State<_CallDialog> {
                 padding: const EdgeInsets.symmetric(vertical: 28),
                 child: Column(
                   children: [
+                    SizedBox(
+                      width: 1,
+                      height: 1,
+                      child: Opacity(
+                        opacity: 0,
+                        child: RTCVideoView(_controller.remoteRenderer),
+                      ),
+                    ),
                     const Icon(Icons.graphic_eq, size: 54),
                     const SizedBox(height: 10),
                     Text(_controller.status),

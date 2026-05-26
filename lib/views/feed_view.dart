@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
@@ -16,6 +17,43 @@ class FeedView extends StatefulWidget {
 }
 
 class _FeedViewState extends State<FeedView> {
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: Column(
+          children: [
+            if (app.posts.isEmpty)
+              const EmptyState(
+                icon: Icons.photo_library_outlined,
+                title: 'No posts yet',
+                body:
+                    'Picture posts from you and your friends will appear here.',
+              )
+            else
+              ...app.posts.map(
+                (post) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _PostCard(post: post),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CreatePostPage extends StatefulWidget {
+  const CreatePostPage({super.key});
+
+  @override
+  State<CreatePostPage> createState() => _CreatePostPageState();
+}
+
+class _CreatePostPageState extends State<CreatePostPage> {
   final _caption = TextEditingController();
   Uint8List? _imageBytes;
   String? _imageName;
@@ -30,28 +68,17 @@ class _FeedViewState extends State<FeedView> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
-        child: Column(
-          children: [
-            _composer(app),
-            const SizedBox(height: 16),
-            if (app.posts.isEmpty)
-              const EmptyState(
-                icon: Icons.photo_library_outlined,
-                title: 'No posts yet',
-                body:
-                    'Add the first picture post and your friends will see it here.',
-              )
-            else
-              ...app.posts.map(
-                (post) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _PostCard(post: post),
-                ),
-              ),
-          ],
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create post')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: _composer(app),
+            ),
+          ),
         ),
       ),
     );
@@ -126,18 +153,17 @@ class _FeedViewState extends State<FeedView> {
                     ? null
                     : () async {
                         setState(() => _posting = true);
-                        await app.createPost(
-                          caption: _caption.text,
-                          imageBytes: _imageBytes!,
-                          filename: _imageName ?? 'post.jpg',
-                        );
-                        if (!mounted) return;
-                        setState(() {
-                          _posting = false;
-                          _imageBytes = null;
-                          _imageName = null;
-                          _caption.clear();
-                        });
+                        try {
+                          await app.createPost(
+                            caption: _caption.text,
+                            imageBytes: _imageBytes!,
+                            filename: _imageName ?? 'post.jpg',
+                          );
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                        } finally {
+                          if (mounted) setState(() => _posting = false);
+                        }
                       },
                 icon: _posting
                     ? const SizedBox(
@@ -145,8 +171,8 @@ class _FeedViewState extends State<FeedView> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.publish_outlined),
-                label: const Text('Publish'),
+                    : const Icon(Icons.send_outlined),
+                label: const Text('Post'),
               ),
             ],
           ),
@@ -195,6 +221,7 @@ class _PostCardState extends State<_PostCard> {
     final post = widget.post;
     final author = app.profileById(post.authorId);
     final comments = app.commentsForPost(post.id);
+    final topLevelComments = app.topLevelCommentsForPost(post.id);
     final shared = app.postById(post.sharedPostId);
     final isMine = post.authorId == app.profile?.id;
     final scheme = Theme.of(context).colorScheme;
@@ -307,7 +334,7 @@ class _PostCardState extends State<_PostCard> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
               child: Column(
-                children: comments
+                children: topLevelComments
                     .map((comment) => _CommentRow(comment: comment, post: post))
                     .toList(),
               ),
@@ -373,52 +400,170 @@ class _PostCardState extends State<_PostCard> {
   }
 }
 
-class _CommentRow extends StatelessWidget {
+class _CommentRow extends StatefulWidget {
   final PostComment comment;
   final SocialPost post;
+  final int depth;
 
-  const _CommentRow({required this.comment, required this.post});
+  const _CommentRow({
+    required this.comment,
+    required this.post,
+    this.depth = 0,
+  });
+
+  @override
+  State<_CommentRow> createState() => _CommentRowState();
+}
+
+class _CommentRowState extends State<_CommentRow> {
+  final _reply = TextEditingController();
+  bool _replying = false;
+
+  @override
+  void dispose() {
+    _reply.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final comment = widget.comment;
+    final post = widget.post;
     final author = app.profileById(comment.authorId);
+    final replies = app.repliesForComment(comment.id);
     final canDelete =
         comment.authorId == app.profile?.id || post.authorId == app.profile?.id;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.only(
+        left: widget.depth == 0 ? 0 : min(widget.depth * 22.0, 44),
+        bottom: 8,
+      ),
+      child: Column(
         children: [
-          UserAvatar(url: author?.avatarUrl, size: 28),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              UserAvatar(url: author?.avatarUrl, size: 28),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: widget.depth > 0
+                        ? Border(
+                            left: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            ),
+                          )
+                        : null,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              author?.fullName ?? 'Member',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          if (widget.depth > 0)
+                            Text(
+                              'Reply',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                      Text(comment.body),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () =>
+                                setState(() => _replying = !_replying),
+                            icon: const Icon(Icons.reply, size: 16),
+                            label: Text(_replying ? 'Cancel' : 'Reply'),
+                          ),
+                          if (replies.isNotEmpty)
+                            CountChip(
+                              icon: Icons.forum_outlined,
+                              label:
+                                  '${replies.length} ${replies.length == 1 ? 'reply' : 'replies'}',
+                              color: VoxoraColors.teal,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              if (canDelete)
+                IconButton(
+                  tooltip: 'Delete comment',
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  onPressed: () => app.deleteComment(comment),
+                ),
+            ],
+          ),
+          if (_replying)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(36, 8, 0, 4),
+              child: Row(
                 children: [
-                  Text(
-                    author?.fullName ?? 'Member',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
+                  Expanded(
+                    child: TextField(
+                      controller: _reply,
+                      minLines: 1,
+                      maxLines: 3,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Reply to ${author?.fullName ?? 'comment'}...',
+                        prefixIcon: const Icon(Icons.reply_outlined),
+                      ),
                     ),
                   ),
-                  Text(comment.body),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    tooltip: 'Send reply',
+                    icon: const Icon(Icons.send),
+                    onPressed: () {
+                      final body = _reply.text;
+                      _reply.clear();
+                      setState(() => _replying = false);
+                      app.addComment(post, body, parentComment: comment);
+                    },
+                  ),
                 ],
               ),
             ),
-          ),
-          if (canDelete)
-            IconButton(
-              tooltip: 'Delete comment',
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () => app.deleteComment(comment),
+          if (replies.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                children: replies
+                    .map(
+                      (reply) => _CommentRow(
+                        comment: reply,
+                        post: post,
+                        depth: widget.depth + 1,
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
         ],
       ),
