@@ -9,9 +9,6 @@ drop function if exists public.admin_set_user_blocked(uuid, boolean);
 drop schema if exists app_private cascade;
 create schema app_private;
 
-delete from storage.objects
-where bucket_id in ('avatars', 'covers', 'post-images');
-
 drop table if exists public.call_signals cascade;
 drop table if exists public.call_participants cascade;
 drop table if exists public.call_sessions cascade;
