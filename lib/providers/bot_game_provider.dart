@@ -3,6 +3,7 @@ import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter/foundation.dart';
 import '../config/constants.dart';
 import '../services/bot_service.dart';
+import '../services/ludo_rules.dart';
 
 class BotGame {
   final String id;
@@ -163,6 +164,7 @@ class BotGameProvider extends ChangeNotifier {
         'activeColors': colors,
         'turn': colors.first,
         'dice': null,
+        'sixStreak': 0,
         'tokens': tokens,
         'winner': null,
       },
@@ -180,12 +182,22 @@ class BotGameProvider extends ChangeNotifier {
     if (game.players[turn] != playerId || state['dice'] != null) return;
 
     final dice = _rng.nextInt(6) + 1;
+    final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
     state['dice'] = dice;
+    state['sixStreak'] = sixStreak;
     game.state = state;
     notifyListeners();
 
+    if (dice == 6 && sixStreak >= 3) {
+      Future.delayed(
+        const Duration(milliseconds: 500),
+        () => _advanceLudoTurn(gameId),
+      );
+      return;
+    }
+
     final tokens = _ludoTokens(state, turn);
-    if (!_hasLegalLudoMove(tokens, dice)) {
+    if (!hasLegalLudoMove(tokens, dice)) {
       Future.delayed(
         const Duration(milliseconds: 500),
         () => _advanceLudoTurn(gameId),
@@ -203,12 +215,14 @@ class BotGameProvider extends ChangeNotifier {
         game.players[color] != playerId) {
       return;
     }
-    if (!_moveLudoTokenInState(state, color, tokenIndex, dice)) return;
+    final move = applyLudoMove(state, color, tokenIndex, dice);
+    if (move == null) return;
+    state['dice'] = null;
 
     game.state = state;
     _checkLudoWinner(game, color);
     notifyListeners();
-    if (game.isActive) _advanceLudoTurn(gameId);
+    if (game.isActive) _finishLudoTurn(gameId, color, dice, move.captured);
   }
 
   void _scheduleBotLudoTurn(String gameId) {
@@ -229,23 +243,52 @@ class BotGameProvider extends ChangeNotifier {
         return;
       }
       final dice = _rng.nextInt(6) + 1;
+      final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
       state['dice'] = dice;
+      state['sixStreak'] = sixStreak;
+      if (dice == 6 && sixStreak >= 3) {
+        game.state = state;
+        _botThinking = false;
+        notifyListeners();
+        Future.delayed(
+          const Duration(milliseconds: 450),
+          () => _advanceLudoTurn(gameId),
+        );
+        return;
+      }
       final allTokens = Map<String, dynamic>.from(state['tokens'] as Map);
       final mine = _ludoTokens(state, turn);
       final opponents = <int>[];
       for (final entry in allTokens.entries) {
         if (entry.key != turn) {
-          opponents.addAll(List<int>.from(entry.value as List));
+          for (final position in List<int>.from(entry.value as List)) {
+            final trackIndex = ludoAbsoluteTrackIndex(entry.key, position);
+            if (trackIndex != null) opponents.add(trackIndex);
+          }
         }
       }
-      final tokenIndex = LudoBot.chooseToken(mine, dice, opponents);
-      if (tokenIndex >= 0) _moveLudoTokenInState(state, turn, tokenIndex, dice);
+      final tokenIndex = LudoBot.chooseToken(
+        mine,
+        dice,
+        opponents,
+        color: turn,
+      );
+      final move = tokenIndex >= 0
+          ? applyLudoMove(state, turn, tokenIndex, dice)
+          : null;
+      state['dice'] = null;
 
       game.state = state;
       _checkLudoWinner(game, turn);
       _botThinking = false;
       notifyListeners();
-      if (game.isActive) _advanceLudoTurn(gameId);
+      if (game.isActive) {
+        if (move != null) {
+          _finishLudoTurn(gameId, turn, dice, move.captured);
+        } else {
+          _advanceLudoTurn(gameId);
+        }
+      }
     });
   }
 
@@ -253,36 +296,30 @@ class BotGameProvider extends ChangeNotifier {
     final game = _find(gameId);
     if (game == null || !game.isActive) return;
     final state = Map<String, dynamic>.from(game.state);
-    final colors = List<String>.from(
-      state['activeColors'] as List? ?? ludoColorNames,
-    );
     final current = state['turn'] as String;
-    final index = colors.indexOf(current);
-    state['turn'] = colors[(index + 1) % colors.length];
+    state['turn'] = nextLudoSeat(state, current);
     state['dice'] = null;
+    state['sixStreak'] = 0;
     game.state = state;
     notifyListeners();
     if (game.players[state['turn']] != playerId) _scheduleBotLudoTurn(gameId);
   }
 
-  bool _moveLudoTokenInState(
-    Map<String, dynamic> state,
-    String color,
-    int tokenIndex,
-    int dice,
-  ) {
-    final allTokens = Map<String, dynamic>.from(state['tokens'] as Map);
-    final tokens = List<int>.from(allTokens[color] as List? ?? [0, 0, 0, 0]);
-    if (tokenIndex < 0 || tokenIndex >= tokens.length) return false;
-    final current = tokens[tokenIndex];
-    if (current >= 56 || (current == 0 && dice != 6) || current + dice > 56) {
-      return false;
-    }
-    tokens[tokenIndex] = current + dice;
-    allTokens[color] = tokens;
-    state['tokens'] = allTokens;
+  void _finishLudoTurn(String gameId, String color, int dice, bool captured) {
+    final game = _find(gameId);
+    if (game == null || !game.isActive) return;
+    final state = Map<String, dynamic>.from(game.state);
+    final keepsTurn = dice == 6 || captured;
     state['dice'] = null;
-    return true;
+    state['turn'] = keepsTurn ? color : nextLudoSeat(state, color);
+    if (!keepsTurn || dice != 6) state['sixStreak'] = 0;
+    game.state = state;
+    notifyListeners();
+    if (keepsTurn && game.players[color] != playerId) {
+      _scheduleBotLudoTurn(gameId);
+    } else if (!keepsTurn && game.players[state['turn']] != playerId) {
+      _scheduleBotLudoTurn(gameId);
+    }
   }
 
   void _checkLudoWinner(BotGame game, String color) {
@@ -299,13 +336,6 @@ class BotGameProvider extends ChangeNotifier {
   List<int> _ludoTokens(Map<String, dynamic> state, String color) {
     final tokens = Map<String, dynamic>.from(state['tokens'] as Map? ?? {});
     return List<int>.from(tokens[color] as List? ?? [0, 0, 0, 0]);
-  }
-
-  bool _hasLegalLudoMove(List<int> tokens, int dice) {
-    return tokens.any(
-      (position) =>
-          position < 56 && (position > 0 || dice == 6) && position + dice <= 56,
-    );
   }
 
   void createCardsGame({int playerCount = 2}) {

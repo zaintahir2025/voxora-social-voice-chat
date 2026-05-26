@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import '../config/theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../providers/bot_game_provider.dart';
+import '../services/ludo_rules.dart';
 import '../widgets/common_widgets.dart';
 
 class GamesView extends StatefulWidget {
@@ -1074,8 +1077,6 @@ const _ludoTrackCells = <Offset>[
   Offset(0, 6),
 ];
 
-const _ludoStartOffsets = {'red': 0, 'blue': 13, 'yellow': 26, 'green': 39};
-
 const _ludoHomeLaneCells = <String, List<Offset>>{
   'red': [Offset(1, 7), Offset(2, 7), Offset(3, 7), Offset(4, 7), Offset(5, 7)],
   'blue': [
@@ -1138,7 +1139,8 @@ class _LudoBoardState extends State<_LudoBoard> {
     final colors = List<String>.from(
       state['activeColors'] as List? ?? ludoColorNames.take(4),
     );
-    final turn = state['turn'] as String? ?? colors.first;
+    final stateTurn = state['turn'] as String?;
+    final turn = widget.friendGame?.currentSeat ?? stateTurn ?? colors.first;
     final dice = state['dice'] as int?;
     final winner = state['winner'] as String?;
     final mySeat = widget.botGame == null
@@ -1685,6 +1687,7 @@ class _LudoPainter extends CustomPainter {
     }
 
     _drawStarts(canvas, cell, border);
+    _drawSafeSquares(canvas, cell);
     _drawCenter(canvas, cell);
 
     canvas.drawRRect(
@@ -1764,7 +1767,7 @@ class _LudoPainter extends CustomPainter {
   }
 
   void _drawStarts(Canvas canvas, double cell, Paint border) {
-    for (final entry in _ludoStartOffsets.entries) {
+    for (final entry in ludoStartOffsets.entries) {
       final lane = Color(ludoBoardColors[entry.key]!);
       final pathCell = _ludoTrackCells[entry.value];
       _drawCell(
@@ -1786,6 +1789,27 @@ class _LudoPainter extends CustomPainter {
         ..lineTo((center.dx - 0.18) * cell, (center.dy + 0.24) * cell)
         ..close();
       canvas.drawPath(start, paint);
+    }
+  }
+
+  void _drawSafeSquares(Canvas canvas, double cell) {
+    final startSquares = ludoStartOffsets.values.toSet();
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true
+      ..color = const Color(0xFFF59E0B).withValues(alpha: 0.82);
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..isAntiAlias = true
+      ..color = Colors.white.withValues(alpha: 0.88);
+
+    for (final safeIndex in ludoSafeTrackIndices) {
+      if (startSquares.contains(safeIndex)) continue;
+      final center = _cellCenter(_ludoTrackCells[safeIndex]);
+      final path = _starPath(Offset(center.dx * cell, center.dy * cell), cell);
+      canvas.drawPath(path, paint);
+      canvas.drawPath(path, stroke);
     }
   }
 
@@ -1833,7 +1857,7 @@ class _LudoPainter extends CustomPainter {
 }
 
 bool _canMoveLudoPosition(int position, int dice) {
-  return position < 56 && (position > 0 || dice == 6) && position + dice <= 56;
+  return isLegalLudoMove(position, dice);
 }
 
 Offset _cellCenter(Offset cell) => Offset(cell.dx + 0.5, cell.dy + 0.5);
@@ -1850,9 +1874,30 @@ Offset _ludoTokenCenter(String color, int tokenIndex, int position) {
     return _cellCenter(lane[laneIndex]);
   }
 
-  final start = _ludoStartOffsets[color] ?? 0;
+  final start = ludoStartOffsets[color] ?? 0;
   final trackIndex = (start + position - 1) % _ludoTrackCells.length;
   return _cellCenter(_ludoTrackCells[trackIndex]);
+}
+
+Path _starPath(Offset center, double cell) {
+  const points = 5;
+  final outer = cell * 0.26;
+  final inner = cell * 0.11;
+  final path = Path();
+  for (var i = 0; i < points * 2; i++) {
+    final angle = -1.5708 + i * pi / points;
+    final radius = i.isEven ? outer : inner;
+    final point = Offset(
+      center.dx + cos(angle) * radius,
+      center.dy + sin(angle) * radius,
+    );
+    if (i == 0) {
+      path.moveTo(point.dx, point.dy);
+    } else {
+      path.lineTo(point.dx, point.dy);
+    }
+  }
+  return path..close();
 }
 
 String _ludoStackKey(Offset center) {
@@ -2926,7 +2971,9 @@ class _GuideDialog extends StatelessWidget {
       ],
       'ludo' => [
         'Roll the dice on your color turn.',
-        'A piece leaves base only on a six.',
+        'A six moves a piece from base onto its start square.',
+        'Landing on a rival outside safe squares sends that piece home.',
+        'Sixes and captures give another turn; three sixes lose the turn.',
         'Reach 56 with all pieces to win.',
         'Glowing pieces are legal moves for the current dice.',
       ],
@@ -2984,7 +3031,8 @@ class _TutorialDialog extends StatelessWidget {
       ],
       'ludo' => [
         'Roll first, then choose one highlighted piece.',
-        'Use sixes to bring new pieces out.',
+        'Use sixes to bring new pieces out and keep pressure on rivals.',
+        'Aim for the marked safe squares when an opponent is close.',
         'Near home, choose exact moves that reach 56.',
       ],
       'cards' => [

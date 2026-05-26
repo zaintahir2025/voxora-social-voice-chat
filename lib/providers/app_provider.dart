@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/constants.dart';
 import '../models/models.dart';
+import '../services/ludo_rules.dart';
 
 enum AppView { feed, friends, messages, games, profile }
 
@@ -1799,14 +1800,26 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final state = Map<String, dynamic>.from(game.state);
     if (state['dice'] != null || state['winner'] != null) return;
     final dice = _rng.nextInt(6) + 1;
+    final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
     state['dice'] = dice;
-    final tokens = _ludoTokens(state, mine.seat);
-    if (!_hasLudoMove(tokens, dice)) {
+    state['sixStreak'] = sixStreak;
+    state['turn'] = mine.seat;
+    if (dice == 6 && sixStreak >= 3) {
+      final nextSeat = nextLudoSeat(state, mine.seat);
       state['dice'] = null;
-      await updateGame(game, {
-        'state': state,
-        'current_seat': _nextSeat(game.gameType, game.maxPlayers, mine.seat),
-      });
+      state['sixStreak'] = 0;
+      state['turn'] = nextSeat;
+      await updateGame(game, {'state': state, 'current_seat': nextSeat});
+      _showNotice('${mine.seat} rolled three sixes and loses the turn.');
+      return;
+    }
+    final tokens = _ludoTokens(state, mine.seat);
+    if (!hasLegalLudoMove(tokens, dice)) {
+      final nextSeat = nextLudoSeat(state, mine.seat);
+      state['dice'] = null;
+      state['sixStreak'] = 0;
+      state['turn'] = nextSeat;
+      await updateGame(game, {'state': state, 'current_seat': nextSeat});
       _showNotice('${mine.seat} rolled $dice with no legal move.');
       return;
     }
@@ -1819,26 +1832,22 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final state = Map<String, dynamic>.from(game.state);
     final dice = state['dice'] as int?;
     if (dice == null) return;
-    final tokensMap = Map<String, dynamic>.from(state['tokens'] as Map);
-    final tokens = List<int>.from(tokensMap[mine.seat] as List);
-    if (tokenIndex < 0 || tokenIndex >= tokens.length) return;
-    final current = tokens[tokenIndex];
-    if (current >= 56 || (current == 0 && dice != 6) || current + dice > 56) {
+    final move = applyLudoMove(state, mine.seat, tokenIndex, dice);
+    if (move == null) {
       _showNotice('That piece cannot move with this roll.');
       return;
     }
-    tokens[tokenIndex] = current + dice;
-    tokensMap[mine.seat] = tokens;
-    state['tokens'] = tokensMap;
     state['dice'] = null;
-    final winner = tokens.every((position) => position >= 56);
+    final winner = move.finished;
     if (winner) state['winner'] = mine.seat;
+    final keepsTurn = !winner && (dice == 6 || move.captured);
+    final nextSeat = keepsTurn ? mine.seat : nextLudoSeat(state, mine.seat);
+    state['turn'] = nextSeat;
+    if (!keepsTurn || dice != 6) state['sixStreak'] = 0;
     await updateGame(game, {
       'state': state,
       'status': winner ? 'finished' : 'active',
-      'current_seat': winner
-          ? mine.seat
-          : _nextSeat(game.gameType, game.maxPlayers, mine.seat),
+      'current_seat': winner ? mine.seat : nextSeat,
       if (winner) 'winner_id': _profile!.id,
     });
   }
@@ -1941,13 +1950,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     return List<int>.from(tokens[color] as List? ?? [0, 0, 0, 0]);
   }
 
-  bool _hasLudoMove(List<int> tokens, int dice) {
-    return tokens.any(
-      (position) =>
-          position < 56 && (position > 0 || dice == 6) && position + dice <= 56,
-    );
-  }
-
   Map<String, dynamic> _initialGameState(String type, int maxPlayers) {
     if (type == 'chess') {
       return {
@@ -1961,6 +1963,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         'activeColors': colors,
         'turn': colors.first,
         'dice': null,
+        'sixStreak': 0,
         'tokens': {
           for (final color in colors) color: [0, 0, 0, 0],
         },
@@ -1999,12 +2002,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _seatFor(String gameType, int index) => _seatsFor(gameType, 4)[index];
   String _firstSeat(String gameType) =>
       gameType == 'cards' ? 'p1' : _seatFor(gameType, 0);
-
-  String _nextSeat(String gameType, int maxPlayers, String current) {
-    final seats = _seatsFor(gameType, maxPlayers);
-    final index = seats.indexOf(current);
-    return seats[(index + 1) % seats.length];
-  }
 
   String? _displayColorFor(String gameType, String seat) {
     if (gameType == 'chess') return seat == 'white' ? '#F8FAFC' : '#111827';

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:chess/chess.dart' as chess_lib;
 import '../config/constants.dart';
+import 'ludo_rules.dart';
 
 class ChessBot {
   static const _pieceValue = {
@@ -76,22 +77,26 @@ class LudoBot {
   static int chooseToken(
     List<int> tokens,
     int dice,
-    List<int> opponentPositions,
-  ) {
+    List<int> opponentTrackPositions, {
+    required String color,
+  }) {
     var bestIndex = -1;
     var bestScore = -1;
     for (var i = 0; i < tokens.length; i++) {
       final position = tokens[i];
-      if (position >= 56) continue;
-      if (position == 0 && dice != 6) continue;
-      if (position + dice > 56) continue;
+      final next = ludoMoveTarget(position, dice);
+      if (next == null) continue;
 
-      final next = position + dice;
       var score = 10 + next;
       if (position == 0 && dice == 6) score += 45;
       if (next == 56) score += 100;
       if (next > 42) score += 35;
-      if (opponentPositions.contains(next) && next < 56) score += 70;
+      final landingTrack = ludoAbsoluteTrackIndex(color, next);
+      if (landingTrack != null &&
+          !ludoSafeTrackIndices.contains(landingTrack) &&
+          opponentTrackPositions.contains(landingTrack)) {
+        score += 70;
+      }
 
       if (score > bestScore) {
         bestScore = score;
