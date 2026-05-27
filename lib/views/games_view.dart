@@ -653,11 +653,7 @@ class _ChessBoardState extends State<_ChessBoard> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2F2217), Color(0xFF7C4A24)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: const Color(0xFF4A2C17),
                 border: Border.all(color: const Color(0xFFE8D9BE), width: 2),
                 boxShadow: const [
                   BoxShadow(
@@ -893,13 +889,7 @@ class _ChessPiecePainter extends CustomPainter {
     final fillPaint = Paint()
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
-      ..shader = LinearGradient(
-        colors: isWhite
-            ? [Colors.white, const Color(0xFFF8FAFC), const Color(0xFFE5E7EB)]
-            : [const Color(0xFF020617), Colors.black, const Color(0xFF111827)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(const Rect.fromLTWH(0, 0, 100, 100));
+      ..color = isWhite ? Colors.white : Colors.black;
     final sidePaint = Paint()
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
@@ -1561,7 +1551,7 @@ class _LudoPiece extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lane = Color(ludoBoardColors[colorName] ?? 0xFF64748B);
-    final dark = Color.lerp(lane, Colors.black, 0.24)!;
+
     final piece = AnimatedScale(
       scale: movable ? 1.08 : 1,
       duration: const Duration(milliseconds: 160),
@@ -1570,16 +1560,7 @@ class _LudoPiece extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            center: const Alignment(-0.35, -0.45),
-            radius: 1,
-            colors: [
-              Colors.white.withValues(alpha: 0.92),
-              lane.withValues(alpha: 0.96),
-              dark,
-            ],
-            stops: const [0, 0.35, 1],
-          ),
+          color: lane,
           border: Border.all(
             color: movable
                 ? Colors.white
@@ -2006,11 +1987,7 @@ class _Dice3D extends StatelessWidget {
       height: 58,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFD1D5DB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         boxShadow: const [
           BoxShadow(
             color: Colors.black26,

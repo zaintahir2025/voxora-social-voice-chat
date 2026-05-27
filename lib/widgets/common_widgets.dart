@@ -24,8 +24,7 @@ class AppCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: gradient == null ? color ?? scheme.surface : null,
-        gradient: gradient,
+        color: color ?? scheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color:
@@ -74,9 +73,7 @@ class SectionHeader extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [scheme.primary, VoxoraColors.teal],
-              ),
+              color: scheme.primary,
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -127,11 +124,9 @@ class UserAvatar extends StatelessWidget {
       width: size,
       height: size,
       padding: EdgeInsets.all((size * 0.045).clamp(1.5, 3.0)),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [VoxoraColors.brand, VoxoraColors.teal, VoxoraColors.amber],
-        ),
+        color: scheme.primary,
       ),
       child: ClipOval(
         child: SizedBox(
@@ -140,12 +135,7 @@ class UserAvatar extends StatelessWidget {
           child: url == null || url!.isEmpty
               ? DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        scheme.primary.withValues(alpha: 0.22),
-                        VoxoraColors.teal.withValues(alpha: 0.18),
-                      ],
-                    ),
+                    color: scheme.primary.withValues(alpha: 0.12),
                   ),
                   child: Icon(
                     Icons.person,
@@ -259,9 +249,7 @@ class EmptyState extends StatelessWidget {
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [scheme.primary, VoxoraColors.teal],
-                    ),
+                    color: scheme.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon, color: Colors.white, size: 28),
@@ -314,10 +302,7 @@ class MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(13, 10, 13, 8),
         decoration: BoxDecoration(
-          gradient: mine
-              ? LinearGradient(colors: [scheme.primary, VoxoraColors.teal])
-              : null,
-          color: mine ? null : scheme.surfaceContainerHighest,
+          color: mine ? scheme.primary : scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(8),
             topRight: const Radius.circular(8),

@@ -60,13 +60,7 @@ class _ComposerPrompt extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
       padding: const EdgeInsets.all(14),
-      gradient: LinearGradient(
-        colors: [
-          scheme.primary.withValues(alpha: 0.14),
-          VoxoraColors.teal.withValues(alpha: 0.10),
-          scheme.surface.withValues(alpha: 0.94),
-        ],
-      ),
+      color: scheme.primary.withValues(alpha: 0.1),
       child: Row(
         children: [
           UserAvatar(
@@ -248,13 +242,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget _composer(AppProvider app) {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
-      gradient: LinearGradient(
-        colors: [
-          scheme.surface,
-          scheme.primary.withValues(alpha: 0.07),
-          VoxoraColors.teal.withValues(alpha: 0.06),
-        ],
-      ),
+      color: scheme.primary.withValues(alpha: 0.1),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -294,12 +282,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 height: 150,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      scheme.primary.withValues(alpha: 0.08),
-                      VoxoraColors.teal.withValues(alpha: 0.08),
-                    ],
-                  ),
+                  color: scheme.primary,
                   border: Border.all(
                     color: scheme.primary.withValues(alpha: 0.14),
                   ),
@@ -414,9 +397,7 @@ class _PostCardState extends State<_PostCard> {
           Container(
             height: 4,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [scheme.primary, VoxoraColors.teal, VoxoraColors.amber],
-              ),
+              color: scheme.primary,
             ),
           ),
           Padding(

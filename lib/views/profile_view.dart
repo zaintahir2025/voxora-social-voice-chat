@@ -1,7 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../config/theme.dart';
+
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
@@ -81,13 +81,7 @@ class _ProfileViewState extends State<ProfileView> {
             height: 210,
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  scheme.primary.withValues(alpha: 0.22),
-                  VoxoraColors.teal.withValues(alpha: 0.18),
-                  VoxoraColors.amber.withValues(alpha: 0.12),
-                ],
-              ),
+              color: scheme.primary.withValues(alpha: 0.1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
