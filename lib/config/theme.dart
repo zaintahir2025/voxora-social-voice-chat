@@ -2,30 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
-  // Fun, solid, vibrant colors (No gradients!)
-  static const primaryPop = Color(0xFFFF5A5F); // Watermelon Pink
-  static const secondaryPop = Color(0xFF00A699); // Ocean Blue
-  static const accentPop = Color(0xFFFFB400); // Sunshine Yellow
+  // Brand Colors Extracted from Logo
+  static const primaryPop = Color(0xFF00D2D3); // Vibrant Cyan from Logo Chat Bubble
+  static const secondaryPop = Color(0xFF7C4DFF); // Vibrant Purple from Logo Center
+  static const accentPop = Color(0xFFFF5252); // Vibrant Coral from Logo Wave
   static const warningPop = Color(0xFFFF4B4B); // Bright Red
   
   // Semantic Colors (required by app)
-  static const rose = warningPop;
-  static const teal = secondaryPop;
+  static const rose = accentPop;
+  static const teal = primaryPop;
   static const brand = primaryPop;
-  static const amber = accentPop;
-  static const green = secondaryPop;
+  static const amber = Color(0xFFFFB400);
+  static const green = Color(0xFF00C853);
   static const orange = Color(0xFFFF8A00);
   static const slate = Color(0xFF64748B);
 
-  // Soft Dark Theme Colors
-  static const darkBg = Color(0xFF0B192C); // Dark Blue
-  static const darkCard = Color(0xFF14223A); // Slightly lighter blue for cards
-  static const darkBorder = Color(0xFF20324D); // Subtle blue border
+  // Dark Theme Colors (Matched from Logo Background)
+  static const darkBg = Color(0xFF1D242B); // Deep Slate from Dark Logo
+  static const darkCard = Color(0xFF263038); // Slightly lighter slate for cards
+  static const darkBorder = Color(0xFF333E48); // Subtle border
 
-  // Soft Light Theme Colors
-  static const lightBg = Color(0xFFFFFFFF); // Pure White
-  static const lightCard = Color(0xFFFFFFFF); // Pure White
-  static const lightBorder = Color(0xFFDBDBDB); // Subtle Grey Border
+  // Light Theme Colors (Matched from Logo Background)
+  static const lightBg = Color(0xFFFAF7F0); // Warm Cream from Light Logo
+  static const lightCard = Color(0xFFFFFFFF); // Pure White cards for contrast
+  static const lightBorder = Color(0xFFE8E5DF); // Subtle matching border
 }
 
 class VoxoraTheme {
