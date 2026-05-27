@@ -26,7 +26,7 @@ class HomeScreen extends StatelessWidget {
     final isWide = MediaQuery.of(context).size.width >= 980;
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
-    
+
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Stack(
@@ -46,21 +46,30 @@ class HomeScreen extends StatelessWidget {
                           builder: (context, constraints) {
                             return SingleChildScrollView(
                               child: ConstrainedBox(
-                                constraints: BoxConstraints(minWidth: constraints.maxWidth, minHeight: constraints.maxHeight),
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth,
+                                  minHeight: constraints.maxHeight,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     const _Topbar(),
-                                    if (app.notice.isNotEmpty) const _NoticeBar(),
+                                    if (app.notice.isNotEmpty)
+                                      const _NoticeBar(),
                                     Padding(
-                                      padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 4, isWide ? 32 : 16, 32),
+                                      padding: EdgeInsets.fromLTRB(
+                                        isWide ? 32 : 16,
+                                        4,
+                                        isWide ? 32 : 16,
+                                        32,
+                                      ),
                                       child: const _ViewContent(),
                                     ),
                                   ],
                                 ),
                               ),
                             );
-                          }
+                          },
                         ),
                       ),
                     ),
@@ -75,7 +84,9 @@ class HomeScreen extends StatelessWidget {
       floatingActionButton: app.view == AppView.feed
           ? FloatingActionButton(
               tooltip: 'New Post',
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CreatePostPage())),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+              ),
               child: const Icon(Icons.add_rounded, size: 28),
             )
           : null,
@@ -98,64 +109,102 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
-    
+
     return Container(
       width: 280,
       color: scheme.surface,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Image.asset(
-                app.darkMode ? 'assets/logo_dark.png' : 'assets/logo_light.png',
-                width: 200,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 48),
-              ...HomeScreen._items.map((item) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _NavButton(item: item, active: app.view == item.view))),
-              const Spacer(),
-              InkWell(
-                onTap: () {
-                  if (app.profile != null) {
-                    app.viewProfile(app.profile!.id);
-                  }
-                },
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    children: [
-                      UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online', seed: app.profile?.handle),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Image.asset(
+                      app.darkMode
+                          ? 'assets/logo_dark.png'
+                          : 'assets/logo_light.png',
+                      width: 200,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 48),
+                    ...HomeScreen._items.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _NavButton(
+                          item: item,
+                          active: app.view == item.view,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        if (app.profile != null) {
+                          app.viewProfile(app.profile!.id);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
                           children: [
-                            Text(app.profile?.fullName ?? 'Friend', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text('@${app.profile?.handle ?? ''}', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 14)),
+                            UserAvatar(
+                              url: app.profile?.avatarUrl,
+                              size: 48,
+                              online: app.profile?.status == 'online',
+                              seed: app.profile?.handle,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    app.profile?.fullName ?? 'Friend',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '@${app.profile?.handle ?? ''}',
+                                    style: TextStyle(
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: app.signOut,
+                        icon: const Icon(Icons.logout_rounded),
+                        label: const Text('Log out'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: app.signOut,
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Log out'),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -172,21 +221,37 @@ class _NavButton extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
     final unread = item.view == AppView.messages ? app.unreadMessageCount : 0;
-    
+
     return InkWell(
       onTap: () => app.setView(item.view),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
-            _UnreadBadge(count: unread, child: Icon(item.icon, size: 28, color: active ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.5))),
+            _UnreadBadge(
+              count: unread,
+              child: Icon(
+                item.icon,
+                size: 28,
+                color: active
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
             const SizedBox(width: 20),
-            Text(item.label, style: TextStyle(fontSize: 18, color: active ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.6), fontWeight: active ? FontWeight.w800 : FontWeight.w600)),
+            Text(
+              item.label,
+              style: TextStyle(
+                fontSize: 18,
+                color: active
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.6),
+                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -201,7 +266,7 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -214,19 +279,32 @@ class _BottomNav extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: HomeScreen._items.map((item) {
               final active = app.view == item.view;
-              final unread = item.view == AppView.messages ? app.unreadMessageCount : 0;
+              final unread = item.view == AppView.messages
+                  ? app.unreadMessageCount
+                  : 0;
               return InkWell(
                 onTap: () => app.setView(item.view),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: active ? scheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+                    color: active
+                        ? scheme.primary.withValues(alpha: 0.1)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: _UnreadBadge(
                     count: unread,
-                    child: Icon(item.icon, size: 28, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.4)),
+                    child: Icon(
+                      item.icon,
+                      size: 28,
+                      color: active
+                          ? scheme.primary
+                          : scheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
               );
@@ -256,8 +334,18 @@ class _UnreadBadge extends StatelessWidget {
           top: -6,
           child: Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle),
-            child: Text(count > 9 ? '9+' : '$count', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: scheme.error,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              count > 9 ? '9+' : '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ],
@@ -273,7 +361,7 @@ class _Topbar extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 980;
-    
+
     final titles = {
       AppView.feed: 'Home',
       AppView.friends: 'Friends',
@@ -281,7 +369,7 @@ class _Topbar extends StatelessWidget {
       AppView.games: 'Games',
       AppView.profile: 'Profile',
     };
-    
+
     return Container(
       color: Colors.transparent,
       padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 20, isWide ? 32 : 16, 20),
@@ -294,7 +382,9 @@ class _Topbar extends StatelessWidget {
                   ? Align(
                       alignment: Alignment.centerLeft,
                       child: Image.asset(
-                        app.darkMode ? 'assets/logo_dark.png' : 'assets/logo_light.png',
+                        app.darkMode
+                            ? 'assets/logo_dark.png'
+                            : 'assets/logo_light.png',
                         height: 38,
                         fit: BoxFit.contain,
                       ),
@@ -307,7 +397,12 @@ class _Topbar extends StatelessWidget {
             const _NotificationBell(),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(app.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, size: 26),
+              icon: Icon(
+                app.darkMode
+                    ? Icons.dark_mode_rounded
+                    : Icons.light_mode_rounded,
+                size: 26,
+              ),
               tooltip: 'Toggle Theme',
               onPressed: app.toggleTheme,
               color: scheme.onSurface,
@@ -321,9 +416,14 @@ class _Topbar extends StatelessWidget {
                   }
                 },
                 customBorder: const CircleBorder(),
-                child: UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online', seed: app.profile?.handle),
+                child: UserAvatar(
+                  url: app.profile?.avatarUrl,
+                  size: 44,
+                  online: app.profile?.status == 'online',
+                  seed: app.profile?.handle,
+                ),
               ),
-            ]
+            ],
           ],
         ),
       ),
@@ -365,9 +465,15 @@ class _NotificationBell extends StatelessWidget {
                         color: scheme.surface,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          ),
                         ],
-                        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: const _NotificationsPanel(),
                     ),
@@ -383,8 +489,18 @@ class _NotificationBell extends StatelessWidget {
             top: 2,
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle),
-              child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(
+                color: scheme.error,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                unread > 9 ? '9+' : '$unread',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
       ],
@@ -400,50 +516,92 @@ class _NotificationsPanel extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final notifications = app.notifications;
     final scheme = Theme.of(context).colorScheme;
-    
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 560),
       child: Padding(
         padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: Text('Notifications', style: Theme.of(context).textTheme.titleLarge)),
-                  if (notifications.isNotEmpty) ...[
-                    TextButton(onPressed: app.unreadNotificationCount == 0 ? null : app.markNotificationsRead, child: const Text('Mark Read')),
-                    TextButton(onPressed: app.clearNotifications, child: const Text('Clear All')),
-                  ]
-                ],
-              ),
-              const Divider(),
-              if (notifications.isEmpty)
-                Expanded(child: Center(child: Text('No new notifications 🌟', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.6), fontSize: 18))))
-              else
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
                 Expanded(
-                  child: ListView.separated(
-                    itemBuilder: (context, index) {
-                      final item = notifications[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: item.read ? scheme.surfaceContainerHighest : scheme.primary.withValues(alpha: 0.1),
-                          foregroundColor: item.read ? scheme.onSurface : scheme.primary,
-                          child: Icon(item.icon),
-                        ),
-                        title: Text(item.title, style: TextStyle(fontWeight: item.read ? FontWeight.normal : FontWeight.bold, fontSize: 16)),
-                        subtitle: Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
-                        onTap: () { app.openNotification(item); Navigator.pop(context); },
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemCount: notifications.length,
+                  child: Text(
+                    'Notifications',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-            ],
-          ),
+                if (notifications.isNotEmpty) ...[
+                  TextButton(
+                    onPressed: app.unreadNotificationCount == 0
+                        ? null
+                        : app.markNotificationsRead,
+                    child: const Text('Mark Read'),
+                  ),
+                  TextButton(
+                    onPressed: app.clearNotifications,
+                    child: const Text('Clear All'),
+                  ),
+                ],
+              ],
+            ),
+            const Divider(),
+            if (notifications.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'No new notifications 🌟',
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemBuilder: (context, index) {
+                    final item = notifications[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: item.read
+                            ? scheme.surfaceContainerHighest
+                            : scheme.primary.withValues(alpha: 0.1),
+                        foregroundColor: item.read
+                            ? scheme.onSurface
+                            : scheme.primary,
+                        child: Icon(item.icon),
+                      ),
+                      title: Text(
+                        item.title,
+                        style: TextStyle(
+                          fontWeight: item.read
+                              ? FontWeight.normal
+                              : FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      subtitle: Text(
+                        item.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        app.openNotification(item);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemCount: notifications.length,
+                ),
+              ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -461,7 +619,9 @@ class _IncomingCallOverlay extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Positioned(
-      top: 0, left: 0, right: 0,
+      top: 0,
+      left: 0,
+      right: 0,
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -473,35 +633,74 @@ class _IncomingCallOverlay extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: scheme.primary,
                   borderRadius: BorderRadius.circular(32),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))],
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
-                    UserAvatar(url: caller?.avatarUrl, size: 56, seed: caller?.handle),
+                    UserAvatar(
+                      url: caller?.avatarUrl,
+                      size: 56,
+                      seed: caller?.handle,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(caller?.fullName ?? 'Someone', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-                          const Text('is calling you!', style: TextStyle(fontSize: 14, color: Colors.white70)),
+                          Text(
+                            caller?.fullName ?? 'Someone',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Text(
+                            'is calling you!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     IconButton.filled(
-                      style: IconButton.styleFrom(backgroundColor: Colors.white24, padding: const EdgeInsets.all(12)),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white24,
+                        padding: const EdgeInsets.all(12),
+                      ),
                       onPressed: () => app.declineCall(call),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     IconButton.filled(
-                      style: IconButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.all(12)),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.all(12),
+                      ),
                       onPressed: () {
                         app.selectConversation(call.conversationId);
-                        showDialog<void>(context: context, barrierDismissible: false, builder: (_) => CallDialog(call: call));
+                        showDialog<void>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => CallDialog(call: call),
+                        );
                       },
-                      icon: Icon(Icons.phone_in_talk_rounded, color: scheme.primary),
+                      icon: Icon(
+                        Icons.phone_in_talk_rounded,
+                        color: scheme.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -529,8 +728,23 @@ class _NoticeBar extends StatelessWidget {
         children: [
           const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(app.notice, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-          InkWell(onTap: app.clearNotice, child: const Icon(Icons.close_rounded, size: 20, color: Colors.white)),
+          Expanded(
+            child: Text(
+              app.notice,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: app.clearNotice,
+            child: const Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -543,11 +757,16 @@ class _ViewContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (context.watch<AppProvider>().view) {
-      case AppView.feed: return const FeedView();
-      case AppView.friends: return const FriendsView();
-      case AppView.messages: return const MessagesView();
-      case AppView.games: return const GamesView();
-      case AppView.profile: return const ProfileView();
+      case AppView.feed:
+        return const FeedView();
+      case AppView.friends:
+        return const FriendsView();
+      case AppView.messages:
+        return const MessagesView();
+      case AppView.games:
+        return const GamesView();
+      case AppView.profile:
+        return const ProfileView();
     }
   }
 }
