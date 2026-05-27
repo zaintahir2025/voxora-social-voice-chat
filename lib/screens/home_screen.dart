@@ -445,43 +445,63 @@ class _NotificationBell extends StatelessWidget {
           icon: const Icon(Icons.notifications_rounded, size: 26),
           tooltip: 'Notifications',
           color: scheme.onSurface,
-          onPressed: () => showGeneralDialog<void>(
-            context: context,
-            barrierDismissible: true,
-            barrierLabel: 'Dismiss',
-            barrierColor: Colors.transparent,
-            pageBuilder: (context, _, __) {
-              final screenWidth = MediaQuery.of(context).size.width;
-              final isMobile = screenWidth < 500;
-              return Align(
-                alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
-                child: Padding(
-                  padding: EdgeInsets.only(top: 70, right: isMobile ? 0 : 20),
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: Container(
-                      width: isMobile ? screenWidth - 32 : 380,
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 20,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: const _NotificationsPanel(),
+          onPressed: () {
+            final isMobile = MediaQuery.of(context).size.width < 600;
+            if (isMobile) {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
                     ),
                   ),
+                  child: const _NotificationsPanel(),
                 ),
               );
-            },
-          ),
+            } else {
+              showGeneralDialog<void>(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: 'Dismiss',
+                barrierColor: Colors.transparent,
+                pageBuilder: (context, _, __) {
+                  return Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 70, right: 20),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Container(
+                          width: 380,
+                          decoration: BoxDecoration(
+                            color: scheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 20,
+                                offset: Offset(0, 10),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          child: const _NotificationsPanel(),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+          },
         ),
         if (unread > 0)
           Positioned(
