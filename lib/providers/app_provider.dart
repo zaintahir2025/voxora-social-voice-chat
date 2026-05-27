@@ -118,6 +118,8 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get loading => _loading;
   bool get darkMode => _darkMode;
   ThemeMode get themeMode => _darkMode ? ThemeMode.dark : ThemeMode.light;
+
+
   String get notice => _notice;
   String get dataError => _dataError;
   String? get activeCallId => _activeCallId;
