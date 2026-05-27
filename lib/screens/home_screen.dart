@@ -41,7 +41,6 @@ class HomeScreen extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context).scaffoldBackgroundColor,
-                          borderRadius: isWide ? const BorderRadius.only(topLeft: Radius.circular(40)) : null,
                         ),
                         child: SingleChildScrollView(
                           child: Column(
