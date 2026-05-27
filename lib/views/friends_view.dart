@@ -135,6 +135,7 @@ class _PersonTile extends StatelessWidget {
                   url: person.avatarUrl,
                   size: 54,
                   online: accepted && person.status == 'online',
+                  seed: person.handle,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

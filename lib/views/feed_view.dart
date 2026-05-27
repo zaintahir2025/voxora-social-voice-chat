@@ -67,6 +67,7 @@ class _ComposerPrompt extends StatelessWidget {
             url: app.profile?.avatarUrl,
             size: 48,
             online: app.profile?.status == 'online',
+            seed: app.profile?.handle,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -180,6 +181,7 @@ class _StoryBubble extends StatelessWidget {
               url: person.avatarUrl,
               size: 52,
               online: person.status == 'online',
+              seed: person.handle,
             ),
             const SizedBox(height: 7),
             Text(
@@ -412,6 +414,7 @@ class _PostCardState extends State<_PostCard> {
                   child: UserAvatar(
                     url: author?.avatarUrl,
                     online: author?.status == 'online',
+                    seed: author?.handle,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -659,7 +662,7 @@ class _CommentRowState extends State<_CommentRow> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              UserAvatar(url: author?.avatarUrl, size: 28),
+              UserAvatar(url: author?.avatarUrl, size: 28, seed: author?.handle),
               const SizedBox(width: 8),
               Expanded(
                 child: Container(

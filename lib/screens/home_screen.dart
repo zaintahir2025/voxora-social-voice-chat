@@ -119,7 +119,7 @@ class _Sidebar extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online'),
+                    UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online', seed: app.profile?.handle),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -292,7 +292,7 @@ class _Topbar extends StatelessWidget {
             ),
             if (!isWide) ...[
               const SizedBox(width: 12),
-              UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online'),
+              UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online', seed: app.profile?.handle),
             ]
           ],
         ),
@@ -425,7 +425,7 @@ class _IncomingCallOverlay extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    UserAvatar(url: caller?.avatarUrl, size: 56),
+                    UserAvatar(url: caller?.avatarUrl, size: 56, seed: caller?.handle),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(

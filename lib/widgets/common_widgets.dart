@@ -114,12 +114,26 @@ class UserAvatar extends StatelessWidget {
   final String? url;
   final double size;
   final bool online;
+  final String? seed;
 
-  const UserAvatar({super.key, this.url, this.size = 42, this.online = false});
+  const UserAvatar({
+    super.key,
+    this.url,
+    this.size = 42,
+    this.online = false,
+    this.seed,
+  });
+
+  String get _fallbackUrl {
+    final s = Uri.encodeComponent(seed ?? 'voxora');
+    return 'https://api.dicebear.com/9.x/lorelei/png?seed=$s&backgroundColor=ff5a5f,00a699,ffb400,ff4b4b,f97316';
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final effectiveUrl = url == null || url!.isEmpty ? _fallbackUrl : url!;
+    
     final avatar = Container(
       width: size,
       height: size,
@@ -132,27 +146,16 @@ class UserAvatar extends StatelessWidget {
         child: SizedBox(
           width: size,
           height: size,
-          child: url == null || url!.isEmpty
-              ? DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                  ),
-                  child: Icon(
-                    Icons.person,
-                    color: scheme.primary,
-                    size: size * 0.5,
-                  ),
-                )
-              : Image.network(
-                  url!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.12),
-                    ),
-                    child: Icon(Icons.person, color: scheme.primary),
-                  ),
-                ),
+          child: Image.network(
+            effectiveUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.12),
+              ),
+              child: Icon(Icons.person, color: scheme.primary),
+            ),
+          ),
         ),
       ),
     );
@@ -212,7 +215,7 @@ class AvatarStack extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: UserAvatar(url: visible[i].avatarUrl, size: size),
+                child: UserAvatar(url: visible[i].avatarUrl, size: size, seed: visible[i].handle),
               ),
             ),
         ],

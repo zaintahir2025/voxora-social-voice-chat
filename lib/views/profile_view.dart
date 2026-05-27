@@ -146,6 +146,7 @@ class _ProfileViewState extends State<ProfileView> {
                         url: person.avatarUrl,
                         size: 92,
                         online: person.status == 'online',
+                        seed: person.handle,
                       ),
                       if (mine)
                         Positioned(

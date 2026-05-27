@@ -405,7 +405,7 @@ class _GameSetupDialogState extends State<_GameSetupDialog> {
                       value: _invites.contains(friend.id),
                       title: Text(friend.fullName),
                       subtitle: Text('@${friend.handle}'),
-                      secondary: UserAvatar(url: friend.avatarUrl),
+                      secondary: UserAvatar(url: friend.avatarUrl, seed: friend.handle),
                       onChanged: (value) {
                         setState(() {
                           if (value ?? false) {
