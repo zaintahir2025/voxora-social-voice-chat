@@ -32,20 +32,20 @@ flutter:
     - assets/
 
 flutter_launcher_icons:
-  image_path: assets/app-icon.png
+  image_path: assets/logo_dark.png
   android: true
   ios: true
   remove_alpha_ios: true
   min_sdk_android: 23
   web:
     generate: true
-    image_path: assets/app-icon.png
-    background_color: "#0E1117"
-    theme_color: "#FF3D66"
+    image_path: assets/logo_dark.png
+    background_color: "#0B192C"
+    theme_color: "#0B192C"
   windows:
     generate: true
-    image_path: assets/app-icon.png
+    image_path: assets/logo_dark.png
     icon_size: 48
   macos:
     generate: true
-    image_path: assets/app-icon.png
+    image_path: assets/logo_dark.png
