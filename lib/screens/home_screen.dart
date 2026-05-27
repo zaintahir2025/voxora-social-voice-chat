@@ -292,7 +292,7 @@ class _Topbar extends StatelessWidget {
             const _NotificationBell(),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(app.darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, size: 26),
+              icon: Icon(app.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, size: 26),
               tooltip: 'Toggle Theme',
               onPressed: app.toggleTheme,
               color: scheme.onSurface,
