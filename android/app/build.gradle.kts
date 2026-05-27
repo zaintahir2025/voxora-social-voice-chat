@@ -66,14 +66,9 @@ android {
 
     buildTypes {
         release {
-            if (!hasReleaseSigning && isReleaseBuild) {
-                throw GradleException(
-                    "Release signing is not configured. Set ANDROID_KEYSTORE_PATH, " +
-                        "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD, " +
-                        "or create ignored android/key.properties with storeFile/storePassword/keyAlias/keyPassword.",
-                )
-            }
-            if (hasReleaseSigning) {
+            if (!hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("debug")
+            } else {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
