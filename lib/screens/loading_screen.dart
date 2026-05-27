@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../config/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LoadingScreen extends StatefulWidget {
