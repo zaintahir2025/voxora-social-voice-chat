@@ -107,11 +107,6 @@ class UserAvatar extends StatelessWidget {
     this.seed,
   });
 
-  String get _fallbackUrl {
-    final s = Uri.encodeComponent(seed ?? 'voxora');
-    return 'https://api.dicebear.com/9.x/lorelei/png?seed=$s&backgroundColor=ff5a5f,00a699,ffb400,ff4b4b,f97316';
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
