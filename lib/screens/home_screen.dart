@@ -42,18 +42,25 @@ class HomeScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Theme.of(context).scaffoldBackgroundColor,
                         ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _Topbar(),
-                              if (app.notice.isNotEmpty) const _NoticeBar(),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 4, isWide ? 32 : 16, 32),
-                                child: const _ViewContent(),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minWidth: constraints.maxWidth, minHeight: constraints.maxHeight),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const _Topbar(),
+                                    if (app.notice.isNotEmpty) const _NoticeBar(),
+                                    Padding(
+                                      padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 4, isWide ? 32 : 16, 32),
+                                      child: const _ViewContent(),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            );
+                          }
                         ),
                       ),
                     ),
@@ -108,26 +115,34 @@ class _Sidebar extends StatelessWidget {
               const SizedBox(height: 48),
               ...HomeScreen._items.map((item) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _NavButton(item: item, active: app.view == item.view))),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  children: [
-                    UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online', seed: app.profile?.handle),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(app.profile?.fullName ?? 'Friend', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text('@${app.profile?.handle ?? ''}', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 14)),
-                        ],
+              InkWell(
+                onTap: () {
+                  if (app.profile != null) {
+                    app.viewProfile(app.profile!.id);
+                  }
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    children: [
+                      UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online', seed: app.profile?.handle),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(app.profile?.fullName ?? 'Friend', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('@${app.profile?.handle ?? ''}', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 14)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
