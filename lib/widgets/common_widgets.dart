@@ -115,7 +115,7 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final effectiveUrl = url == null || url!.isEmpty ? _fallbackUrl : url!;
+    final isPlaceholder = url == null || url!.isEmpty;
     
     final avatar = Container(
       width: size,
@@ -129,16 +129,29 @@ class UserAvatar extends StatelessWidget {
         child: SizedBox(
           width: size,
           height: size,
-          child: Image.network(
-            effectiveUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.onSurface.withValues(alpha: 0.1),
-              ),
-              child: Icon(Icons.person, color: scheme.onSurface.withValues(alpha: 0.5), size: size * 0.5),
-            ),
-          ),
+          child: isPlaceholder
+              ? Container(
+                  color: Colors.white,
+                  alignment: Alignment.bottomCenter,
+                  child: Icon(
+                    Icons.person,
+                    color: Colors.grey.shade600,
+                    size: size * 0.8,
+                  ),
+                )
+              : Image.network(
+                  url!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.white,
+                    alignment: Alignment.bottomCenter,
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.grey.shade600,
+                      size: size * 0.8,
+                    ),
+                  ),
+                ),
         ),
       ),
     );
