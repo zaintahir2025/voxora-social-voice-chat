@@ -29,8 +29,9 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: VoxoraColors.primaryPop,
+      backgroundColor: scheme.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -43,40 +44,29 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
                   child: child,
                 );
               },
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.waves_rounded, size: 80, color: VoxoraColors.primaryPop),
+              child: Image.asset(
+                Theme.of(context).brightness == Brightness.dark
+                    ? 'assets/logo_dark.png'
+                    : 'assets/logo_light.png',
+                width: 260,
+                fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 30),
-            Text(
-              'Voxora',
-              style: GoogleFonts.nunito(
-                fontSize: 42,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 40),
             Text(
               'Getting things ready...',
               style: GoogleFonts.nunito(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Colors.white.withValues(alpha: 0.8),
+                color: scheme.onSurface.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 40),
             SizedBox(
               width: 100,
               child: LinearProgressIndicator(
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+                backgroundColor: scheme.primary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
                 minHeight: 8,
               ),

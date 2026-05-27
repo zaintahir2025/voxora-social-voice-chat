@@ -100,19 +100,10 @@ class _Sidebar extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.waves_rounded, size: 28, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('Voxora', style: Theme.of(context).textTheme.headlineMedium),
-                ],
+              Image.asset(
+                app.darkMode ? 'assets/logo_dark.png' : 'assets/logo_light.png',
+                width: 200,
+                fit: BoxFit.contain,
               ),
               const SizedBox(height: 48),
               ...HomeScreen._items.map((item) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _NavButton(item: item, active: app.view == item.view))),
@@ -284,10 +275,19 @@ class _Topbar extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                app.view == AppView.feed ? '' : (titles[app.view] ?? ''),
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
+              child: (!isWide && app.view == AppView.feed)
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        app.darkMode ? 'assets/logo_dark.png' : 'assets/logo_light.png',
+                        height: 38,
+                        fit: BoxFit.contain,
+                      ),
+                    )
+                  : Text(
+                      app.view == AppView.feed ? '' : (titles[app.view] ?? ''),
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
             ),
             const _NotificationBell(),
             const SizedBox(width: 8),

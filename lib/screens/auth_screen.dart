@@ -68,27 +68,12 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: scheme.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(Icons.waves_rounded, size: 40, color: scheme.primary),
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              'Voxora',
-                              style: GoogleFonts.nunito(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                                color: scheme.onSurface,
-                              ),
-                            ),
-                          ],
+                        Image.asset(
+                          Theme.of(context).brightness == Brightness.dark
+                              ? 'assets/logo_dark.png'
+                              : 'assets/logo_light.png',
+                          width: 240,
+                          fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 12),
                         Text(
