@@ -22,7 +22,7 @@ class _FeedViewState extends State<FeedView> {
     final app = context.watch<AppProvider>();
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
+        constraints: const BoxConstraints(maxWidth: 680),
         child: Column(
           children: [
             _ComposerPrompt(app: app),
@@ -40,7 +40,7 @@ class _FeedViewState extends State<FeedView> {
               ...app.posts.map(
                 (post) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: _PostCard(post: post),
+                  child: PostCard(post: post),
                 ),
               ),
           ],
@@ -231,7 +231,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
+              constraints: const BoxConstraints(maxWidth: 600),
               child: _composer(app),
             ),
           ),
@@ -278,25 +278,28 @@ class _CreatePostPageState extends State<CreatePostPage> {
           else
             InkWell(
               onTap: _pickImage,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 height: 150,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: scheme.primary,
+                  color: scheme.surface,
                   border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.14),
+                    color: scheme.primary.withValues(alpha: 0.4),
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.image_outlined, color: scheme.primary),
-                    const SizedBox(height: 8),
+                    Icon(Icons.image_outlined, color: scheme.primary, size: 36),
+                    const SizedBox(height: 12),
                     Text(
                       'Choose picture',
-                      style: Theme.of(context).textTheme.labelLarge,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -360,16 +363,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 }
 
-class _PostCard extends StatefulWidget {
+class PostCard extends StatefulWidget {
   final SocialPost post;
 
-  const _PostCard({required this.post});
+  const PostCard({super.key, required this.post});
 
   @override
-  State<_PostCard> createState() => _PostCardState();
+  State<PostCard> createState() => PostCardState();
 }
 
-class _PostCardState extends State<_PostCard> {
+class PostCardState extends State<PostCard> {
   final _comment = TextEditingController();
 
   @override

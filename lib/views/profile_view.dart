@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
+import 'feed_view.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -50,17 +51,37 @@ class _ProfileViewState extends State<ProfileView> {
     final summary = _profileSummary(app, person, mine, posts.length);
     final editor = mine ? _editor(app) : _profileActions(app, person);
 
-    if (wide) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: summary),
-          const SizedBox(width: 14),
-          SizedBox(width: 380, child: editor),
-        ],
-      );
-    }
-    return Column(children: [summary, const SizedBox(height: 14), editor]);
+    final header = wide 
+      ? Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: summary),
+            const SizedBox(width: 14),
+            SizedBox(width: 380, child: editor),
+          ],
+        )
+      : Column(children: [summary, const SizedBox(height: 14), editor]);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        const SizedBox(height: 24),
+        if (posts.isEmpty)
+          const EmptyState(
+            icon: Icons.photo_library_outlined,
+            title: 'No posts yet',
+            body: 'This user hasn\'t posted anything.',
+          )
+        else
+          ...posts.map(
+            (post) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: PostCard(key: ValueKey(post.id), post: post),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _profileSummary(

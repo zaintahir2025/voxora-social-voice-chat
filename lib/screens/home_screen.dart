@@ -322,11 +322,32 @@ class _NotificationBell extends StatelessWidget {
           icon: const Icon(Icons.notifications_rounded, size: 26),
           tooltip: 'Notifications',
           color: scheme.onSurface,
-          onPressed: () => showModalBottomSheet<void>(
+          onPressed: () => showGeneralDialog<void>(
             context: context,
-            showDragHandle: true,
-            backgroundColor: scheme.surface,
-            builder: (_) => const _NotificationsPanel(),
+            barrierDismissible: true,
+            barrierLabel: 'Dismiss',
+            barrierColor: Colors.transparent,
+            pageBuilder: (context, _, __) => Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 70, right: 20),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Container(
+                    width: 380,
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))
+                      ],
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: const _NotificationsPanel(),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         if (unread > 0)
@@ -353,11 +374,10 @@ class _NotificationsPanel extends StatelessWidget {
     final notifications = app.notifications;
     final scheme = Theme.of(context).colorScheme;
     
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 560),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 560),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -397,7 +417,6 @@ class _NotificationsPanel extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
