@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
   // Fun, solid, vibrant colors (No gradients!)
-  static const primaryPop = Color(0xFF7C3AED); // Fun Purple
-  static const secondaryPop = Color(0xFF10B981); // Mint Green
-  static const accentPop = Color(0xFFF59E0B); // Cheerful Amber
-  static const warningPop = Color(0xFFEF4444); // Playful Red
+  static const primaryPop = Color(0xFFFF5A5F); // Watermelon Pink
+  static const secondaryPop = Color(0xFF00A699); // Ocean Blue
+  static const accentPop = Color(0xFFFFB400); // Sunshine Yellow
+  static const warningPop = Color(0xFFFF4B4B); // Bright Red
   
   // Semantic Colors (required by app)
   static const rose = warningPop;
@@ -14,18 +14,18 @@ class VoxoraColors {
   static const brand = primaryPop;
   static const amber = accentPop;
   static const green = secondaryPop;
-  static const orange = Color(0xFFF97316);
+  static const orange = Color(0xFFFF8A00);
   static const slate = Color(0xFF64748B);
 
   // Soft Dark Theme Colors
-  static const darkBg = Color(0xFF0F172A);
-  static const darkCard = Color(0xFF1E293B);
-  static const darkBorder = Color(0xFF334155);
+  static const darkBg = Color(0xFF0B192C);
+  static const darkCard = Color(0xFF1A2B45);
+  static const darkBorder = Color(0xFF2E4057);
 
   // Soft Light Theme Colors
-  static const lightBg = Color(0xFFF8FAFC);
+  static const lightBg = Color(0xFFFFF8F0);
   static const lightCard = Color(0xFFFFFFFF);
-  static const lightBorder = Color(0xFFE2E8F0);
+  static const lightBorder = Color(0xFFF1E3D3);
 }
 
 class VoxoraTheme {
