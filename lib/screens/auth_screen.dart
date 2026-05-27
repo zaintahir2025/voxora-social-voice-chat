@@ -77,12 +77,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 color: scheme.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: SvgPicture.asset(
-                                'assets/voxora-mark.svg',
-                                width: 40,
-                                height: 40,
-                                colorFilter: ColorFilter.mode(scheme.primary, BlendMode.srcIn),
-                              ),
+                              child: Icon(Icons.waves_rounded, size: 40, color: scheme.primary),
                             ),
                             const SizedBox(width: 16),
                             Text(

@@ -49,7 +49,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset('assets/voxora-mark.svg', width: 80, height: 80, colorFilter: const ColorFilter.mode(VoxoraColors.primaryPop, BlendMode.srcIn)),
+                child: const Icon(Icons.waves_rounded, size: 80, color: VoxoraColors.primaryPop),
               ),
             ),
             const SizedBox(height: 30),

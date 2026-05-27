@@ -102,7 +102,7 @@ class _Sidebar extends StatelessWidget {
                       color: scheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: SvgPicture.asset('assets/voxora-mark.svg', width: 32, height: 32, colorFilter: ColorFilter.mode(scheme.primary, BlendMode.srcIn)),
+                    child: Icon(Icons.waves_rounded, size: 32, color: scheme.primary),
                   ),
                   const SizedBox(width: 16),
                   Text('Voxora', style: Theme.of(context).textTheme.headlineMedium),
