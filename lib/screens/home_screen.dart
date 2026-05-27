@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../config/theme.dart';
+
 import '../providers/app_provider.dart';
 import '../views/feed_view.dart';
 import '../views/friends_view.dart';
@@ -9,18 +9,16 @@ import '../views/games_view.dart';
 import '../views/messages_view.dart';
 import '../views/profile_view.dart';
 import '../widgets/common_widgets.dart';
-import 'dart:ui';
-import 'package:google_fonts/google_fonts.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   static const _items = [
-    _NavItem(AppView.feed, Icons.radar_outlined, 'FEED'),
-    _NavItem(AppView.friends, Icons.group_work_outlined, 'SQUAD'),
-    _NavItem(AppView.messages, Icons.chat_outlined, 'COMMS'),
-    _NavItem(AppView.games, Icons.gamepad_outlined, 'ARCADE'),
-    _NavItem(AppView.profile, Icons.account_circle_outlined, 'SYSTEM'),
+    _NavItem(AppView.feed, Icons.home_rounded, 'Home'),
+    _NavItem(AppView.friends, Icons.people_alt_rounded, 'Friends'),
+    _NavItem(AppView.messages, Icons.chat_bubble_rounded, 'Chat'),
+    _NavItem(AppView.games, Icons.videogame_asset_rounded, 'Play'),
+    _NavItem(AppView.profile, Icons.face_rounded, 'Profile'),
   ];
 
   @override
@@ -28,41 +26,11 @@ class HomeScreen extends StatelessWidget {
     final isWide = MediaQuery.of(context).size.width >= 980;
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
+      backgroundColor: scheme.surface,
       body: Stack(
         children: [
-          // Futuristic Background Gradients
-          Positioned.fill(
-            child: Container(color: scheme.surface),
-          ),
-          Positioned(
-            top: -150,
-            right: -50,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [VoxoraColors.neonPurple.withValues(alpha: 0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -150,
-            left: -100,
-            child: Container(
-              width: 500,
-              height: 500,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [VoxoraColors.neonCyan.withValues(alpha: 0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
           Row(
             children: [
               if (isWide) const _Sidebar(),
@@ -72,9 +40,15 @@ class HomeScreen extends StatelessWidget {
                     const _Topbar(),
                     if (app.notice.isNotEmpty) const _NoticeBar(),
                     Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(isWide ? 28 : 14, 0, isWide ? 28 : 14, 24),
-                        child: const _ViewContent(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: isWide ? const BorderRadius.only(topLeft: Radius.circular(40)) : null,
+                        ),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 24, isWide ? 32 : 16, 32),
+                          child: const _ViewContent(),
+                        ),
                       ),
                     ),
                   ],
@@ -87,9 +61,9 @@ class HomeScreen extends StatelessWidget {
       ),
       floatingActionButton: app.view == AppView.feed
           ? FloatingActionButton(
-              tooltip: 'NEW TRANSMISSION',
+              tooltip: 'New Post',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CreatePostPage())),
-              child: const Icon(Icons.add),
+              child: const Icon(Icons.add_rounded, size: 32),
             )
           : null,
       bottomNavigationBar: isWide ? null : const _BottomNav(),
@@ -111,77 +85,68 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    
     return Container(
       width: 280,
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.6),
-        border: Border(right: BorderSide(color: scheme.primary.withValues(alpha: 0.2), width: 2)),
-      ),
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
+      color: scheme.surface,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      SvgPicture.asset('assets/voxora-mark.svg', width: 40, height: 40, colorFilter: ColorFilter.mode(scheme.primary, BlendMode.srcIn)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('VOXORA', style: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 3, color: scheme.onSurface)),
-                            Text('NEURAL NETWORK', style: GoogleFonts.spaceGrotesk(fontSize: 10, letterSpacing: 2, color: scheme.primary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  ...HomeScreen._items.map((item) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _NavButton(item: item, active: app.view == item.view))),
-                  const Spacer(),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: scheme.surface,
+                      color: scheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                     ),
-                    child: Row(
-                      children: [
-                        UserAvatar(url: app.profile?.avatarUrl, size: 40, online: app.profile?.status == 'online'),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(app.profile?.handle ?? 'UNKNOWN', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold)),
-                              Text(_statusLabel(app.profile?.status), style: GoogleFonts.spaceGrotesk(fontSize: 10, color: _statusColor(app.profile?.status))),
-                            ],
-                          ),
-                        ),
-                        IconButton(icon: const Icon(Icons.power_settings_new), onPressed: app.signOut, color: VoxoraColors.neonPink),
-                      ],
-                    ),
+                    child: SvgPicture.asset('assets/voxora-mark.svg', width: 32, height: 32, colorFilter: ColorFilter.mode(scheme.primary, BlendMode.srcIn)),
                   ),
+                  const SizedBox(width: 16),
+                  Text('Voxora', style: Theme.of(context).textTheme.headlineMedium),
                 ],
               ),
-            ),
+              const SizedBox(height: 48),
+              ...HomeScreen._items.map((item) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _NavButton(item: item, active: app.view == item.view))),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    UserAvatar(url: app.profile?.avatarUrl, size: 48, online: app.profile?.status == 'online'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(app.profile?.fullName ?? 'Friend', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text('@${app.profile?.handle ?? ''}', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.5), fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: app.signOut,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Log out'),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  String _statusLabel(String? status) {
-    return switch (status) { 'online' => 'ONLINE', 'away' => 'STANDBY', _ => 'OFFLINE' };
-  }
-
-  Color _statusColor(String? status) {
-    return switch (status) { 'online' => VoxoraColors.neonCyan, 'away' => VoxoraColors.neonPurple, _ => VoxoraColors.darkBorder };
   }
 }
 
@@ -195,23 +160,22 @@ class _NavButton extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
     final unread = item.view == AppView.messages ? app.unreadMessageCount : 0;
+    
     return InkWell(
       onTap: () => app.setView(item.view),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: active ? scheme.primary.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: active ? Border.all(color: scheme.primary.withValues(alpha: 0.5)) : null,
-          boxShadow: active ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 2)] : [],
+          color: active ? scheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
-            _UnreadBadge(count: unread, child: Icon(item.icon, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.5))),
+            _UnreadBadge(count: unread, child: Icon(item.icon, size: 28, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.4))),
             const SizedBox(width: 16),
-            Text(item.label, style: GoogleFonts.spaceGrotesk(color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.5), fontWeight: active ? FontWeight.bold : FontWeight.normal, letterSpacing: 2)),
+            Text(item.label, style: TextStyle(fontSize: 18, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.6), fontWeight: active ? FontWeight.bold : FontWeight.w600)),
           ],
         ),
       ),
@@ -226,24 +190,36 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.8),
-        border: Border(top: BorderSide(color: scheme.primary.withValues(alpha: 0.3))),
+        color: scheme.surface,
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20)],
       ),
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: NavigationBar(
-            backgroundColor: Colors.transparent,
-            indicatorColor: scheme.primary.withValues(alpha: 0.2),
-            selectedIndex: HomeScreen._items.indexWhere((item) => item.view == app.view),
-            onDestinationSelected: (index) => app.setView(HomeScreen._items[index].view),
-            destinations: HomeScreen._items.map((item) => NavigationDestination(
-              icon: _UnreadBadge(count: item.view == AppView.messages ? app.unreadMessageCount : 0, child: Icon(item.icon, color: scheme.onSurface.withValues(alpha: 0.5))),
-              selectedIcon: _UnreadBadge(count: item.view == AppView.messages ? app.unreadMessageCount : 0, child: Icon(item.icon, color: scheme.primary)),
-              label: item.label,
-            )).toList(),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: HomeScreen._items.map((item) {
+              final active = app.view == item.view;
+              final unread = item.view == AppView.messages ? app.unreadMessageCount : 0;
+              return InkWell(
+                onTap: () => app.setView(item.view),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: active ? scheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: _UnreadBadge(
+                    count: unread,
+                    child: Icon(item.icon, size: 28, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.4)),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
@@ -259,16 +235,17 @@ class _UnreadBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (count <= 0) return child;
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         child,
         Positioned(
-          right: -8,
-          top: -8,
+          right: -6,
+          top: -6,
           child: Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: VoxoraColors.neonPink, shape: BoxShape.circle, boxShadow: [BoxShadow(color: VoxoraColors.neonPink.withValues(alpha: 0.5), blurRadius: 4)]),
+            decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle),
             child: Text(count > 9 ? '9+' : '$count', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
           ),
         ),
@@ -284,42 +261,39 @@ class _Topbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    final isWide = MediaQuery.of(context).size.width >= 980;
+    
     final titles = {
-      AppView.feed: 'GLOBAL FEED',
-      AppView.friends: 'SQUADRON',
-      AppView.messages: 'COMMUNICATIONS',
-      AppView.games: 'VIRTUAL ARCADE',
-      AppView.profile: 'SYSTEM PROFILE',
+      AppView.feed: 'Home',
+      AppView.friends: 'Friends',
+      AppView.messages: 'Chats',
+      AppView.games: 'Games',
+      AppView.profile: 'Profile',
     };
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+    
+    return Container(
+      color: scheme.surface,
+      padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 20, isWide ? 32 : 16, 20),
+      child: SafeArea(
+        bottom: false,
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(titles[app.view] ?? '', style: Theme.of(context).textTheme.headlineMedium),
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: scheme.primary.withValues(alpha: 0.3))),
-                    child: Text('LINK ESTABLISHED', style: GoogleFonts.spaceGrotesk(fontSize: 10, color: scheme.primary, letterSpacing: 1)),
-                  ),
-                ],
-              ),
+              child: Text(titles[app.view] ?? '', style: Theme.of(context).textTheme.headlineMedium),
             ),
             const _NotificationBell(),
             const SizedBox(width: 8),
-            ActionIconButton(
-              icon: app.darkMode ? Icons.light_mode : Icons.dark_mode,
-              tooltip: 'TOGGLE THEME',
-              onPressed: app.toggleTheme, // Added back the theme switcher successfully!
+            IconButton(
+              icon: Icon(app.darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, size: 28),
+              tooltip: 'Toggle Theme',
+              onPressed: app.toggleTheme,
+              color: scheme.primary,
+              style: IconButton.styleFrom(backgroundColor: scheme.primary.withValues(alpha: 0.1)),
             ),
-            const SizedBox(width: 8),
-            UserAvatar(url: app.profile?.avatarUrl, size: 40, online: app.profile?.status == 'online'),
+            if (!isWide) ...[
+              const SizedBox(width: 12),
+              UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online'),
+            ]
           ],
         ),
       ),
@@ -333,30 +307,30 @@ class _NotificationBell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final scheme = Theme.of(context).colorScheme;
     final unread = app.unreadNotificationCount;
     return Stack(
       children: [
-        ActionIconButton(
-          icon: Icons.notifications_outlined,
-          tooltip: 'ALERTS',
+        IconButton(
+          icon: const Icon(Icons.notifications_rounded, size: 28),
+          tooltip: 'Notifications',
+          color: scheme.primary,
+          style: IconButton.styleFrom(backgroundColor: scheme.primary.withValues(alpha: 0.1)),
           onPressed: () => showModalBottomSheet<void>(
             context: context,
             showDragHandle: true,
-            backgroundColor: Theme.of(context).colorScheme.surface,
+            backgroundColor: scheme.surface,
             builder: (_) => const _NotificationsPanel(),
           ),
         ),
         if (unread > 0)
           Positioned(
-            right: 0,
-            top: 0,
+            right: 2,
+            top: 2,
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: VoxoraColors.neonPink, shape: BoxShape.circle),
-              child: Text(
-                unread > 9 ? '9+' : '$unread',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              ),
+              decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle),
+              child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ),
       ],
@@ -372,43 +346,45 @@ class _NotificationsPanel extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final notifications = app.notifications;
     final scheme = Theme.of(context).colorScheme;
+    
     return SafeArea(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 560),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Expanded(child: Text('SYSTEM ALERTS', style: Theme.of(context).textTheme.titleLarge)),
+                  Expanded(child: Text('Notifications', style: Theme.of(context).textTheme.titleLarge)),
                   if (notifications.isNotEmpty) ...[
-                    TextButton(onPressed: app.unreadNotificationCount == 0 ? null : app.markNotificationsRead, child: const Text('MARK READ')),
-                    TextButton(onPressed: app.clearNotifications, child: const Text('PURGE')),
+                    TextButton(onPressed: app.unreadNotificationCount == 0 ? null : app.markNotificationsRead, child: const Text('Mark Read')),
+                    TextButton(onPressed: app.clearNotifications, child: const Text('Clear All')),
                   ]
                 ],
               ),
               const Divider(),
               if (notifications.isEmpty)
-                const Expanded(child: Center(child: Text('NO NEW ALERTS')))
+                Expanded(child: Center(child: Text('No new notifications 🌟', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.6), fontSize: 18))))
               else
                 Expanded(
                   child: ListView.separated(
                     itemBuilder: (context, index) {
                       final item = notifications[index];
                       return ListTile(
+                        contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
-                          backgroundColor: item.read ? scheme.surfaceContainerHighest : scheme.primary.withValues(alpha: 0.2),
+                          backgroundColor: item.read ? scheme.surfaceContainerHighest : scheme.primary.withValues(alpha: 0.1),
                           foregroundColor: item.read ? scheme.onSurface : scheme.primary,
                           child: Icon(item.icon),
                         ),
-                        title: Text(item.title, style: TextStyle(fontWeight: item.read ? FontWeight.normal : FontWeight.bold)),
+                        title: Text(item.title, style: TextStyle(fontWeight: item.read ? FontWeight.normal : FontWeight.bold, fontSize: 16)),
                         subtitle: Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
                         onTap: () { app.openNotification(item); Navigator.pop(context); },
                       );
                     },
-                    separatorBuilder: (_, __) => const Divider(),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemCount: notifications.length,
                   ),
                 ),
@@ -437,53 +413,45 @@ class _IncomingCallOverlay extends StatelessWidget {
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: const BoxConstraints(maxWidth: 400),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Container(
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: scheme.surface.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: VoxoraColors.neonCyan, width: 2),
-                  boxShadow: [BoxShadow(color: VoxoraColors.neonCyan.withValues(alpha: 0.3), blurRadius: 20)],
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))],
                 ),
-                child: ClipRRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
+                child: Row(
+                  children: [
+                    UserAvatar(url: caller?.avatarUrl, size: 56),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          UserAvatar(url: caller?.avatarUrl, size: 48),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(caller?.fullName ?? 'UNKNOWN SIGNAL', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                Text('INCOMING TRANSMISSION', style: GoogleFonts.spaceGrotesk(fontSize: 10, color: VoxoraColors.neonCyan, letterSpacing: 1)),
-                              ],
-                            ),
-                          ),
-                          IconButton.filled(
-                            style: IconButton.styleFrom(backgroundColor: VoxoraColors.neonPink),
-                            onPressed: () => app.declineCall(call),
-                            icon: const Icon(Icons.close, color: Colors.white),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton.filled(
-                            style: IconButton.styleFrom(backgroundColor: VoxoraColors.neonCyan),
-                            onPressed: () {
-                              app.selectConversation(call.conversationId);
-                              showDialog<void>(context: context, barrierDismissible: false, builder: (_) => CallDialog(call: call));
-                            },
-                            icon: const Icon(Icons.phone_in_talk, color: Colors.black),
-                          ),
+                          Text(caller?.fullName ?? 'Someone', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                          const Text('is calling you!', style: TextStyle(fontSize: 14, color: Colors.white70)),
                         ],
                       ),
                     ),
-                  ),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: Colors.white24, padding: const EdgeInsets.all(12)),
+                      onPressed: () => app.declineCall(call),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.all(12)),
+                      onPressed: () {
+                        app.selectConversation(call.conversationId);
+                        showDialog<void>(context: context, barrierDismissible: false, builder: (_) => CallDialog(call: call));
+                      },
+                      icon: Icon(Icons.phone_in_talk_rounded, color: scheme.primary),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -500,16 +468,17 @@ class _NoticeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      color: VoxoraColors.neonPink.withValues(alpha: 0.1),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: scheme.error,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: VoxoraColors.neonPink, size: 18),
-          const SizedBox(width: 10),
-          Expanded(child: Text(app.notice, style: const TextStyle(color: VoxoraColors.neonPink))),
-          InkWell(onTap: app.clearNotice, child: const Icon(Icons.close, size: 16, color: VoxoraColors.neonPink)),
+          const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(app.notice, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          InkWell(onTap: app.clearNotice, child: const Icon(Icons.close_rounded, size: 20, color: Colors.white)),
         ],
       ),
     );

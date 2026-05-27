@@ -2,49 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
-  // Futuristic Neon Colors
-  static const neonCyan = Color(0xFF00F0FF);
-  static const neonPink = Color(0xFFFF0055);
-  static const neonPurple = Color(0xFF9D00FF);
+  // Fun, solid, vibrant colors (No gradients!)
+  static const primaryPop = Color(0xFF7C3AED); // Fun Purple
+  static const secondaryPop = Color(0xFF10B981); // Mint Green
+  static const accentPop = Color(0xFFF59E0B); // Cheerful Amber
+  static const warningPop = Color(0xFFEF4444); // Playful Red
   
-  // Semantic Colors mapped to futuristic tones
-  static const rose = Color(0xFFFF0055); // Maps to neonPink
-  static const teal = Color(0xFF00F0FF); // Maps to neonCyan
-  static const brand = Color(0xFF9D00FF); // Maps to neonPurple
-  static const amber = Color(0xFFFFC000); 
-  static const green = Color(0xFF00FF66);
-  static const orange = Color(0xFFFF6600);
-  static const slate = Color(0xFF6B7280);
+  // Semantic Colors (required by app)
+  static const rose = warningPop;
+  static const teal = secondaryPop;
+  static const brand = primaryPop;
+  static const amber = accentPop;
+  static const green = secondaryPop;
+  static const orange = Color(0xFFF97316);
+  static const slate = Color(0xFF64748B);
 
-  // Dark Theme Colors
-  static const darkSpace = Color(0xFF050814); // Deep space black
-  static const darkPanel = Color(0xFF0D1326); // Slightly lighter for cards
-  static const darkBorder = Color(0xFF1A2642); 
+  // Soft Dark Theme Colors
+  static const darkBg = Color(0xFF0F172A);
+  static const darkCard = Color(0xFF1E293B);
+  static const darkBorder = Color(0xFF334155);
 
-  // Light Theme Colors (Clean, high-tech white)
-  static const lightVoid = Color(0xFFF0F4F8);
-  static const lightPanel = Color(0xFFFFFFFF);
-  static const lightBorder = Color(0xFFD1D9E6);
+  // Soft Light Theme Colors
+  static const lightBg = Color(0xFFF8FAFC);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightBorder = Color(0xFFE2E8F0);
 }
 
 class VoxoraTheme {
   static ThemeData light() => _buildTheme(
         brightness: Brightness.light,
-        scaffold: VoxoraColors.lightVoid,
-        surface: VoxoraColors.lightPanel,
-        onSurface: const Color(0xFF1A1A24),
-        primary: VoxoraColors.neonPurple,
-        secondary: VoxoraColors.neonCyan,
+        scaffold: VoxoraColors.lightBg,
+        surface: VoxoraColors.lightCard,
+        onSurface: const Color(0xFF0F172A),
+        primary: VoxoraColors.primaryPop,
+        secondary: VoxoraColors.secondaryPop,
         border: VoxoraColors.lightBorder,
       );
 
   static ThemeData dark() => _buildTheme(
         brightness: Brightness.dark,
-        scaffold: VoxoraColors.darkSpace,
-        surface: VoxoraColors.darkPanel,
-        onSurface: const Color(0xFFE2E8F0),
-        primary: VoxoraColors.neonCyan,
-        secondary: VoxoraColors.neonPink,
+        scaffold: VoxoraColors.darkBg,
+        surface: VoxoraColors.darkCard,
+        onSurface: const Color(0xFFF8FAFC),
+        primary: VoxoraColors.primaryPop,
+        secondary: VoxoraColors.secondaryPop,
         border: VoxoraColors.darkBorder,
       );
 
@@ -64,11 +65,11 @@ class VoxoraTheme {
       secondary: secondary,
       surface: surface,
       onSurface: onSurface,
-      error: VoxoraColors.neonPink,
+      error: VoxoraColors.warningPop,
     );
 
-    // Using Space Grotesk for a futuristic, geometric look
-    final textTheme = GoogleFonts.spaceGroteskTextTheme(
+    // Nunito provides a very friendly, fun, rounded appearance
+    final textTheme = GoogleFonts.nunitoTextTheme(
       brightness == Brightness.dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
     ).apply(
       bodyColor: onSurface,
@@ -81,119 +82,114 @@ class VoxoraTheme {
       scaffoldBackgroundColor: scaffold,
       colorScheme: scheme,
       textTheme: textTheme.copyWith(
-        headlineMedium: GoogleFonts.spaceGrotesk(
+        headlineMedium: GoogleFonts.nunito(
           fontSize: 28,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+          fontWeight: FontWeight.w800,
           color: onSurface,
         ),
-        titleLarge: GoogleFonts.spaceGrotesk(
+        titleLarge: GoogleFonts.nunito(
           fontSize: 22,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
+          fontWeight: FontWeight.w800,
           color: onSurface,
         ),
-        bodyMedium: GoogleFonts.spaceGrotesk(
-          fontSize: 15,
-          height: 1.5,
-          color: onSurface.withValues(alpha: 0.85),
+        bodyMedium: GoogleFonts.nunito(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: onSurface.withValues(alpha: 0.8),
         ),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: scaffold,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.spaceGrotesk(
+        titleTextStyle: GoogleFonts.nunito(
           fontSize: 22,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2.0,
+          fontWeight: FontWeight.w800,
           color: onSurface,
         ),
         iconTheme: IconThemeData(color: primary),
       ),
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 8,
-        shadowColor: primary.withValues(alpha: 0.15),
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: border, width: 1.5),
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: border, width: 2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: brightness == Brightness.dark ? VoxoraColors.darkSpace : Colors.white,
-          elevation: 10,
-          shadowColor: primary.withValues(alpha: 0.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
           ),
-          textStyle: GoogleFonts.spaceGrotesk(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            fontSize: 16,
+          textStyle: GoogleFonts.nunito(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primary,
-          side: BorderSide(color: primary, width: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: BorderSide(color: border, width: 2),
+          backgroundColor: surface,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
           ),
-          textStyle: GoogleFonts.spaceGrotesk(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            fontSize: 14,
+          textStyle: GoogleFonts.nunito(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        fillColor: brightness == Brightness.dark ? VoxoraColors.darkBg : VoxoraColors.lightBg,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: border),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: border, width: 2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: border),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: border, width: 2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(color: primary, width: 2),
         ),
-        labelStyle: TextStyle(color: onSurface.withValues(alpha: 0.6)),
+        labelStyle: TextStyle(color: onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.w700),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surface,
         selectedItemColor: primary,
         unselectedItemColor: onSurface.withValues(alpha: 0.4),
         type: BottomNavigationBarType.fixed,
-        elevation: 20,
+        elevation: 0,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: secondary,
-        foregroundColor: VoxoraColors.darkSpace,
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
-        elevation: 12,
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: primary,
+          foregroundColor: onSurface,
         ),
       ),
       dividerTheme: DividerThemeData(
         color: border,
-        thickness: 1,
-        space: 1,
+        thickness: 2,
+        space: 2,
       ),
     );
   }

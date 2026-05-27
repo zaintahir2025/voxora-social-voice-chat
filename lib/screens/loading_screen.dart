@@ -12,11 +12,13 @@ class LoadingScreen extends StatefulWidget {
 
 class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Animation<double> _bounce;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+    _bounce = Tween<double>(begin: 0, end: -20).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -28,62 +30,55 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: VoxoraColors.darkSpace,
+      backgroundColor: VoxoraColors.primaryPop,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: VoxoraColors.neonCyan.withValues(alpha: 0.3),
-                    blurRadius: 30,
-                    spreadRadius: 10,
-                  ),
-                ],
+            AnimatedBuilder(
+              animation: _bounce,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, _bounce.value),
+                  child: child,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset('assets/voxora-mark.svg', width: 80, height: 80, colorFilter: const ColorFilter.mode(VoxoraColors.primaryPop, BlendMode.srcIn)),
               ),
-              child: SvgPicture.asset('assets/voxora-mark.svg', width: 80, height: 80, colorFilter: const ColorFilter.mode(VoxoraColors.neonCyan, BlendMode.srcIn)),
             ),
             const SizedBox(height: 30),
             Text(
-              'V O X O R A',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 32,
+              'Voxora',
+              style: GoogleFonts.nunito(
+                fontSize: 42,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
-                letterSpacing: 8,
-                shadows: [
-                  Shadow(
-                    color: VoxoraColors.neonCyan.withValues(alpha: 0.8),
-                    blurRadius: 10,
-                  )
-                ]
+                letterSpacing: 2,
               ),
             ),
             const SizedBox(height: 10),
             Text(
-              'INITIALIZING NEURAL NETWORKS...',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 12,
-                color: VoxoraColors.neonCyan.withValues(alpha: 0.8),
-                letterSpacing: 2,
+              'Getting things ready...',
+              style: GoogleFonts.nunito(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 40),
             SizedBox(
-              width: 200,
-              height: 4,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return LinearProgressIndicator(
-                    valueColor: const AlwaysStoppedAnimation<Color>(VoxoraColors.neonCyan),
-                    backgroundColor: VoxoraColors.darkBorder,
-                  );
-                },
+              width: 100,
+              child: LinearProgressIndicator(
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+                minHeight: 8,
               ),
             ),
           ],
