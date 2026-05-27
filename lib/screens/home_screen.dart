@@ -314,7 +314,15 @@ class _Topbar extends StatelessWidget {
             ),
             if (!isWide) ...[
               const SizedBox(width: 12),
-              UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online', seed: app.profile?.handle),
+              InkWell(
+                onTap: () {
+                  if (app.profile != null) {
+                    app.viewProfile(app.profile!.id);
+                  }
+                },
+                customBorder: const CircleBorder(),
+                child: UserAvatar(url: app.profile?.avatarUrl, size: 44, online: app.profile?.status == 'online', seed: app.profile?.handle),
+              ),
             ]
           ],
         ),
@@ -342,27 +350,31 @@ class _NotificationBell extends StatelessWidget {
             barrierDismissible: true,
             barrierLabel: 'Dismiss',
             barrierColor: Colors.transparent,
-            pageBuilder: (context, _, __) => Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 70, right: 20),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Container(
-                    width: 380,
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))
-                      ],
-                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            pageBuilder: (context, _, __) {
+              final screenWidth = MediaQuery.of(context).size.width;
+              final isMobile = screenWidth < 500;
+              return Align(
+                alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 70, right: isMobile ? 0 : 20),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Container(
+                      width: isMobile ? screenWidth - 32 : 380,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 10))
+                        ],
+                        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: const _NotificationsPanel(),
                     ),
-                    child: const _NotificationsPanel(),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
         if (unread > 0)

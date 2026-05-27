@@ -311,7 +311,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               OutlinedButton.icon(
                 onPressed: _posting ? null : _pickImage,
                 icon: const Icon(Icons.image_search_outlined),
-                label: Text(_imageName ?? 'Picture'),
+                label: Text(_imageBytes != null ? 'Change' : 'Picture'),
               ),
               const Spacer(),
               FilledButton.icon(
