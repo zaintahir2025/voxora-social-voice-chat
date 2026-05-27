@@ -25,21 +25,11 @@ class AppCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: color ?? scheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-              borderColor ??
-              (dark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.white.withValues(alpha: 0.74)),
+          color: borderColor ?? (dark ? VoxoraColors.darkBorder : VoxoraColors.lightBorder),
+          width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.22 : 0.07),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(padding: padding, child: child),
@@ -75,13 +65,6 @@ class SectionHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: scheme.primary,
               borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withValues(alpha: 0.20),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
             ),
             child: Icon(icon, color: Colors.white, size: 20),
           ),
@@ -151,9 +134,9 @@ class UserAvatar extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => DecoratedBox(
               decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
+                color: scheme.onSurface.withValues(alpha: 0.1),
               ),
-              child: Icon(Icons.person, color: scheme.primary),
+              child: Icon(Icons.person, color: scheme.onSurface.withValues(alpha: 0.5), size: size * 0.5),
             ),
           ),
         ),

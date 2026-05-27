@@ -18,14 +18,14 @@ class VoxoraColors {
   static const slate = Color(0xFF64748B);
 
   // Soft Dark Theme Colors
-  static const darkBg = Color(0xFF0B192C);
-  static const darkCard = Color(0xFF1A2B45);
-  static const darkBorder = Color(0xFF2E4057);
+  static const darkBg = Color(0xFF000000); // Pure Black
+  static const darkCard = Color(0xFF121212); // Deep Grey
+  static const darkBorder = Color(0xFF262626); // Subtle Border
 
   // Soft Light Theme Colors
-  static const lightBg = Color(0xFFFFF8F0);
-  static const lightCard = Color(0xFFFFFFFF);
-  static const lightBorder = Color(0xFFF1E3D3);
+  static const lightBg = Color(0xFFFFFFFF); // Pure White
+  static const lightCard = Color(0xFFFFFFFF); // Pure White
+  static const lightBorder = Color(0xFFDBDBDB); // Subtle Grey Border
 }
 
 class VoxoraTheme {

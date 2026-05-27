@@ -59,48 +59,47 @@ class _ComposerPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
-      padding: const EdgeInsets.all(14),
-      color: scheme.primary.withValues(alpha: 0.1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           UserAvatar(
             url: app.profile?.avatarUrl,
-            size: 48,
+            size: 44,
             online: app.profile?.status == 'online',
             seed: app.profile?.handle,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: InkWell(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(24),
               child: Container(
-                height: 46,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
-                  color: scheme.surface.withValues(alpha: 0.84),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.55),
-                  ),
+                  color: scheme.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Text(
                   'Drop a moment...',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          IconButton.filled(
-            tooltip: 'Post',
+          IconButton(
+            tooltip: 'Post Image',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
             ),
-            icon: const Icon(Icons.add_photo_alternate_outlined),
+            icon: const Icon(Icons.image_outlined, size: 28),
+            color: scheme.primary,
           ),
         ],
       ),

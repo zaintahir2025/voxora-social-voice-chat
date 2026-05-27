@@ -63,7 +63,7 @@ class HomeScreen extends StatelessWidget {
           ? FloatingActionButton(
               tooltip: 'New Post',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CreatePostPage())),
-              child: const Icon(Icons.add_rounded, size: 32),
+              child: const Icon(Icons.add_rounded, size: 28),
             )
           : null,
       bottomNavigationBar: isWide ? null : const _BottomNav(),
@@ -97,14 +97,14 @@ class _Sidebar extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      color: scheme.primary,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.waves_rounded, size: 32, color: scheme.primary),
+                    child: const Icon(Icons.waves_rounded, size: 28, color: Colors.white),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Text('Voxora', style: Theme.of(context).textTheme.headlineMedium),
                 ],
               ),
@@ -163,19 +163,18 @@ class _NavButton extends StatelessWidget {
     
     return InkWell(
       onTap: () => app.setView(item.view),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: active ? scheme.primary.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            _UnreadBadge(count: unread, child: Icon(item.icon, size: 28, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.4))),
-            const SizedBox(width: 16),
-            Text(item.label, style: TextStyle(fontSize: 18, color: active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.6), fontWeight: active ? FontWeight.bold : FontWeight.w600)),
+            _UnreadBadge(count: unread, child: Icon(item.icon, size: 28, color: active ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.5))),
+            const SizedBox(width: 20),
+            Text(item.label, style: TextStyle(fontSize: 18, color: active ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.6), fontWeight: active ? FontWeight.w800 : FontWeight.w600)),
           ],
         ),
       ),
@@ -284,11 +283,10 @@ class _Topbar extends StatelessWidget {
             const _NotificationBell(),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(app.darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, size: 28),
+              icon: Icon(app.darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, size: 26),
               tooltip: 'Toggle Theme',
               onPressed: app.toggleTheme,
-              color: scheme.primary,
-              style: IconButton.styleFrom(backgroundColor: scheme.primary.withValues(alpha: 0.1)),
+              color: scheme.onSurface,
             ),
             if (!isWide) ...[
               const SizedBox(width: 12),
@@ -312,10 +310,9 @@ class _NotificationBell extends StatelessWidget {
     return Stack(
       children: [
         IconButton(
-          icon: const Icon(Icons.notifications_rounded, size: 28),
+          icon: const Icon(Icons.notifications_rounded, size: 26),
           tooltip: 'Notifications',
-          color: scheme.primary,
-          style: IconButton.styleFrom(backgroundColor: scheme.primary.withValues(alpha: 0.1)),
+          color: scheme.onSurface,
           onPressed: () => showModalBottomSheet<void>(
             context: context,
             showDragHandle: true,
