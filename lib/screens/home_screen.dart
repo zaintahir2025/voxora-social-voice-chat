@@ -37,8 +37,6 @@ class HomeScreen extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const _Topbar(),
-                    if (app.notice.isNotEmpty) const _NoticeBar(),
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
@@ -46,8 +44,17 @@ class HomeScreen extends StatelessWidget {
                           borderRadius: isWide ? const BorderRadius.only(topLeft: Radius.circular(40)) : null,
                         ),
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 24, isWide ? 32 : 16, 32),
-                          child: const _ViewContent(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const _Topbar(),
+                              if (app.notice.isNotEmpty) const _NoticeBar(),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 4, isWide ? 32 : 16, 32),
+                                child: const _ViewContent(),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -271,14 +278,17 @@ class _Topbar extends StatelessWidget {
     };
     
     return Container(
-      color: scheme.surface,
+      color: Colors.transparent,
       padding: EdgeInsets.fromLTRB(isWide ? 32 : 16, 20, isWide ? 32 : 16, 20),
       child: SafeArea(
         bottom: false,
         child: Row(
           children: [
             Expanded(
-              child: Text(titles[app.view] ?? '', style: Theme.of(context).textTheme.headlineMedium),
+              child: Text(
+                app.view == AppView.feed ? '' : (titles[app.view] ?? ''),
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
             ),
             const _NotificationBell(),
             const SizedBox(width: 8),

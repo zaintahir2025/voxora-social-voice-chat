@@ -18,9 +18,9 @@ class VoxoraColors {
   static const slate = Color(0xFF64748B);
 
   // Soft Dark Theme Colors
-  static const darkBg = Color(0xFF000000); // Pure Black
-  static const darkCard = Color(0xFF121212); // Deep Grey
-  static const darkBorder = Color(0xFF262626); // Subtle Border
+  static const darkBg = Color(0xFF0B192C); // Dark Blue
+  static const darkCard = Color(0xFF14223A); // Slightly lighter blue for cards
+  static const darkBorder = Color(0xFF20324D); // Subtle blue border
 
   // Soft Light Theme Colors
   static const lightBg = Color(0xFFFFFFFF); // Pure White
