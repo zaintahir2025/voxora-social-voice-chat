@@ -58,9 +58,9 @@ class HomeScreen extends StatelessWidget {
                                       const _NoticeBar(),
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                        isWide ? 32 : 16,
+                                        isWide ? 12 : 6,
                                         4,
-                                        isWide ? 32 : 16,
+                                        isWide ? 12 : 6,
                                         32,
                                       ),
                                       child: const _ViewContent(),
@@ -82,12 +82,16 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: app.view == AppView.feed
-          ? FloatingActionButton(
-              tooltip: 'New Post',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+          ? SizedBox(
+              width: 44,
+              height: 44,
+              child: FloatingActionButton(
+                tooltip: 'New Post',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+                ),
+                child: const Icon(Icons.add_rounded, size: 24),
               ),
-              child: const Icon(Icons.add_rounded, size: 28),
             )
           : null,
       bottomNavigationBar: isWide ? null : const _BottomNav(),
@@ -404,7 +408,7 @@ class _Topbar extends StatelessWidget {
                 app.darkMode
                     ? Icons.dark_mode_rounded
                     : Icons.light_mode_rounded,
-                size: 26,
+                size: 20,
               ),
               tooltip: 'Toggle Theme',
               onPressed: app.toggleTheme,
@@ -445,7 +449,7 @@ class _NotificationBell extends StatelessWidget {
     return Stack(
       children: [
         IconButton(
-          icon: const Icon(Icons.notifications_rounded, size: 26),
+          icon: const Icon(Icons.notifications_rounded, size: 20),
           tooltip: 'Notifications',
           color: scheme.onSurface,
           onPressed: () {

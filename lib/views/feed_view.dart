@@ -22,7 +22,7 @@ class _FeedViewState extends State<FeedView> {
     final app = context.watch<AppProvider>();
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
+        constraints: const BoxConstraints(maxWidth: 820),
         child: Column(
           children: [
             _ComposerPrompt(app: app),
