@@ -19,7 +19,7 @@ class Profile {
     this.coverUrl,
     this.bio = '',
     this.interests = const [],
-    this.status = 'online',
+    this.status = 'offline',
     required this.createdAt,
   });
 
@@ -52,7 +52,7 @@ class Profile {
             .where((item) => item.isNotEmpty)
             .toList() ??
         const [],
-    status: json['status'] as String? ?? 'online',
+    status: json['status'] as String? ?? 'offline',
     createdAt: json['created_at'] as String? ?? '',
   );
 }
