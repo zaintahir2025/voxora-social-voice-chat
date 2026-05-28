@@ -123,20 +123,20 @@ class _Sidebar extends StatelessWidget {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: [
                     Image.asset(
                       app.darkMode
                           ? 'assets/logo_dark.png'
                           : 'assets/logo_light.png',
-                      width: 140,
+                      width: 120,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     ...HomeScreen._items.map(
                       (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
+                        padding: const EdgeInsets.only(bottom: 0),
                         child: _NavButton(
                           item: item,
                           active: app.view == item.view,
@@ -152,7 +152,7 @@ class _Sidebar extends StatelessWidget {
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Theme.of(context).scaffoldBackgroundColor,
                           borderRadius: BorderRadius.circular(16),
@@ -161,11 +161,11 @@ class _Sidebar extends StatelessWidget {
                           children: [
                             UserAvatar(
                               url: app.profile?.avatarUrl,
-                              size: 36,
+                              size: 32,
                               online: app.profile?.status == 'online',
                               seed: app.profile?.handle,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +174,7 @@ class _Sidebar extends StatelessWidget {
                                     app.profile?.fullName ?? 'Friend',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -185,7 +185,7 @@ class _Sidebar extends StatelessWidget {
                                       color: scheme.onSurface.withValues(
                                         alpha: 0.5,
                                       ),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
@@ -195,16 +195,16 @@ class _Sidebar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
                         onPressed: app.signOut,
-                        icon: const Icon(Icons.logout_rounded, size: 20),
-                        label: const Text('Log out'),
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        label: const Text('Log out', style: TextStyle(fontSize: 13)),
                       ),
                     ),
                   ],
@@ -233,7 +233,7 @@ class _NavButton extends StatelessWidget {
       onTap: () => app.setView(item.view),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 42,
+        height: 38,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: Row(
@@ -242,17 +242,17 @@ class _NavButton extends StatelessWidget {
               count: unread,
               child: Icon(
                 item.icon,
-                size: 22,
+                size: 20,
                 color: active
                     ? scheme.onSurface
                     : scheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Text(
               item.label,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 color: active
                     ? scheme.onSurface
                     : scheme.onSurface.withValues(alpha: 0.6),
