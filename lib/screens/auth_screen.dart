@@ -79,12 +79,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Image.asset(
-                          Theme.of(context).brightness == Brightness.dark
-                              ? 'assets/logo_dark.png'
-                              : 'assets/logo_light.png',
-                          width: 140,
-                          fit: BoxFit.contain,
+                        Center(
+                          child: Image.asset(
+                            Theme.of(context).brightness == Brightness.dark
+                                ? 'assets/logo_dark.png'
+                                : 'assets/logo_light.png',
+                            height: 80,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
