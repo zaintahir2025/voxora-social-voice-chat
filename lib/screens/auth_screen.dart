@@ -41,27 +41,38 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 20,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              scheme.surfaceContainerHighest,
+              scheme.surface,
+              scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 24,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -72,20 +83,20 @@ class _AuthScreenState extends State<AuthScreen> {
                           Theme.of(context).brightness == Brightness.dark
                               ? 'assets/logo_dark.png'
                               : 'assets/logo_light.png',
-                          width: 240,
+                          width: 140,
                           fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         Text(
                           'Jump in and have fun!',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.nunito(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         SegmentedButton<bool>(
                           segments: const [
                             ButtonSegment(value: true, label: Text('Log In')),
@@ -97,12 +108,17 @@ class _AuthScreenState extends State<AuthScreen> {
                             _error = '';
                           }),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         if (!_login) ...[
-                          _field(_name, 'Display name', Icons.person_outline, validator: _minTwo),
-                          const SizedBox(height: 16),
-                          _field(_handle, 'Handle', Icons.alternate_email, validator: _handleRule),
-                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: _field(_name, 'Name', Icons.person_outline, validator: _minTwo)),
+                              const SizedBox(width: 12),
+                              Expanded(child: _field(_handle, 'Handle', Icons.alternate_email, validator: _handleRule)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
                         ],
                         _field(
                           _email,
@@ -111,7 +127,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) => (value ?? '').contains('@') ? null : 'Enter a valid email.',
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _field(
                           _password,
                           'Password',
@@ -129,15 +145,20 @@ class _AuthScreenState extends State<AuthScreen> {
                           },
                         ),
                         if (!_login) ...[
-                          const SizedBox(height: 16),
-                          _field(_bio, 'Bio', Icons.info_outline, maxLines: 3),
-                          const SizedBox(height: 16),
-                          _field(_interests, 'Interests', Icons.interests_outlined),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 2, child: _field(_bio, 'Bio', Icons.info_outline, maxLines: 1)),
+                              const SizedBox(width: 12),
+                              Expanded(flex: 3, child: _field(_interests, 'Interests', Icons.interests_outlined)),
+                            ],
+                          ),
                         ],
                         if (_error.isNotEmpty) ...[
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: scheme.error.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
@@ -151,15 +172,17 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         ElevatedButton(
                           onPressed: _busy ? null : _submit,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
                           ),
                           child: _busy
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                              : Text(_login ? 'Let\'s Go!' : 'Create Account', style: const TextStyle(fontSize: 20)),
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Text(_login ? 'Let\'s Go!' : 'Create Account', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -191,8 +214,10 @@ class _AuthScreenState extends State<AuthScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        prefixIcon: Icon(icon, size: 20),
         suffixIcon: suffix,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        isDense: true,
       ),
     );
   }
