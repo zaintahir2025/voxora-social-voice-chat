@@ -51,16 +51,16 @@ class _ProfileViewState extends State<ProfileView> {
     final summary = _profileSummary(app, person, mine, posts.length);
     final editor = mine ? _editor(app) : _profileActions(app, person);
 
-    final header = wide 
-      ? Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: summary),
-            const SizedBox(width: 14),
-            SizedBox(width: 380, child: editor),
-          ],
-        )
-      : Column(children: [summary, const SizedBox(height: 14), editor]);
+    final header = wide
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: summary),
+              const SizedBox(width: 14),
+              SizedBox(width: 380, child: editor),
+            ],
+          )
+        : Column(children: [summary, const SizedBox(height: 14), editor]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,22 +197,23 @@ class _ProfileViewState extends State<ProfileView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Text(
+                        person.fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Expanded(
-                            child: Text(
-                              person.fullName,
-                              style: Theme.of(context).textTheme.headlineMedium,
-                            ),
-                          ),
                           CountChip(
                             icon: Icons.photo_library_outlined,
                             label: '$postCount posts',
                           ),
-                          if (showStatus) ...[
-                            const SizedBox(width: 8),
-                            UserStatusChip(status: person.status),
-                          ],
+                          if (showStatus) UserStatusChip(status: person.status),
                         ],
                       ),
                       Text(

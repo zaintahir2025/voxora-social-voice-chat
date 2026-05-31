@@ -88,7 +88,9 @@ class HomeScreen extends StatelessWidget {
               child: FloatingActionButton(
                 tooltip: 'New Post',
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const CreatePostPage()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CreatePostPage(),
+                  ),
                 ),
                 child: const Icon(Icons.add_rounded, size: 24),
               ),
@@ -123,7 +125,10 @@ class _Sidebar extends StatelessWidget {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   children: [
                     Image.asset(
@@ -204,7 +209,10 @@ class _Sidebar extends StatelessWidget {
                         ),
                         onPressed: app.signOut,
                         icon: const Icon(Icons.logout_rounded, size: 18),
-                        label: const Text('Log out', style: TextStyle(fontSize: 13)),
+                        label: const Text(
+                          'Log out',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ),
                     ),
                   ],
@@ -273,6 +281,7 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Container(
       decoration: BoxDecoration(
@@ -281,36 +290,49 @@ class _BottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 12,
+            vertical: 8,
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: HomeScreen._items.map((item) {
               final active = app.view == item.view;
               final unread = item.view == AppView.messages
                   ? app.unreadMessageCount
                   : 0;
-              return InkWell(
-                onTap: () => app.setView(item.view),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? scheme.primary.withValues(alpha: 0.1)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: _UnreadBadge(
-                    count: unread,
-                    child: Icon(
-                      item.icon,
-                      size: 28,
-                      color: active
-                          ? scheme.primary
-                          : scheme.onSurface.withValues(alpha: 0.4),
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Tooltip(
+                    message: item.label,
+                    child: Semantics(
+                      button: true,
+                      label: item.label,
+                      selected: active,
+                      child: InkWell(
+                        onTap: () => app.setView(item.view),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: active
+                                ? scheme.primary.withValues(alpha: 0.1)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: _UnreadBadge(
+                            count: unread,
+                            child: Icon(
+                              item.icon,
+                              size: compact ? 24 : 26,
+                              color: active
+                                  ? scheme.primary
+                                  : scheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -559,18 +581,26 @@ class _NotificationsPanel extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-                if (notifications.isNotEmpty) ...[
-                  TextButton(
-                    onPressed: app.unreadNotificationCount == 0
-                        ? null
-                        : app.markNotificationsRead,
-                    child: const Text('Mark Read'),
+                if (notifications.isNotEmpty)
+                  Flexible(
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        TextButton(
+                          onPressed: app.unreadNotificationCount == 0
+                              ? null
+                              : app.markNotificationsRead,
+                          child: const Text('Mark Read'),
+                        ),
+                        TextButton(
+                          onPressed: app.clearNotifications,
+                          child: const Text('Clear All'),
+                        ),
+                      ],
+                    ),
                   ),
-                  TextButton(
-                    onPressed: app.clearNotifications,
-                    child: const Text('Clear All'),
-                  ),
-                ],
               ],
             ),
             const Divider(),
@@ -578,7 +608,7 @@ class _NotificationsPanel extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Text(
-                    'No new notifications 🌟',
+                    'No new notifications yet',
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 18,

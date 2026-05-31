@@ -24,10 +24,13 @@ class AppCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: color ?? scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: gradient == null ? color ?? scheme.surface : null,
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: borderColor ?? (dark ? VoxoraColors.darkBorder : VoxoraColors.lightBorder),
+          color:
+              borderColor ??
+              (dark ? VoxoraColors.darkBorder : VoxoraColors.lightBorder),
           width: 1,
         ),
       ),
@@ -111,15 +114,12 @@ class UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isPlaceholder = url == null || url!.isEmpty;
-    
+
     final avatar = Container(
       width: size,
       height: size,
       padding: EdgeInsets.all((size * 0.045).clamp(1.5, 3.0)),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: scheme.primary,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
       child: ClipOval(
         child: SizedBox(
           width: size,
@@ -206,7 +206,11 @@ class AvatarStack extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: UserAvatar(url: visible[i].avatarUrl, size: size, seed: visible[i].handle),
+                child: UserAvatar(
+                  url: visible[i].avatarUrl,
+                  size: size,
+                  seed: visible[i].handle,
+                ),
               ),
             ),
         ],

@@ -155,10 +155,13 @@ class _PersonTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (accepted) UserStatusChip(status: person.status),
               ],
             ),
           ),
+          if (accepted) ...[
+            const SizedBox(height: 10),
+            UserStatusChip(status: person.status),
+          ],
           if (person.bio.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(person.bio, maxLines: 3, overflow: TextOverflow.ellipsis),

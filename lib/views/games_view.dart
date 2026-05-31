@@ -335,10 +335,14 @@ class _GameSetupDialogState extends State<_GameSetupDialog> {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final needsCount = widget.type != 'chess';
+    final dialogWidth = max(
+      280.0,
+      min(420.0, MediaQuery.of(context).size.width - 64),
+    );
     return AlertDialog(
       title: Text('Start ${gameTitles[widget.type]}'),
       content: SizedBox(
-        width: 420,
+        width: dialogWidth,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -405,7 +409,10 @@ class _GameSetupDialogState extends State<_GameSetupDialog> {
                       value: _invites.contains(friend.id),
                       title: Text(friend.fullName),
                       subtitle: Text('@${friend.handle}'),
-                      secondary: UserAvatar(url: friend.avatarUrl, seed: friend.handle),
+                      secondary: UserAvatar(
+                        url: friend.avatarUrl,
+                        seed: friend.handle,
+                      ),
                       onChanged: (value) {
                         setState(() {
                           if (value ?? false) {
@@ -2819,10 +2826,10 @@ class _PlayingCard extends StatelessWidget {
 
   String _suit(String suit) {
     return switch (suit) {
-      'S' => '♠',
-      'H' => '♥',
-      'D' => '♦',
-      'C' => '♣',
+      'S' => 'spades',
+      'H' => 'hearts',
+      'D' => 'diamonds',
+      'C' => 'clubs',
       _ => '',
     };
   }
@@ -3037,24 +3044,26 @@ class _GuideDialog extends StatelessWidget {
     };
     return AlertDialog(
       title: Text('${gameTitles[type]} rules'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rules
-            .map(
-              (rule) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.check_circle_outline, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(rule)),
-                  ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: rules
+              .map(
+                (rule) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(rule)),
+                    ],
+                  ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
       actions: [
         FilledButton(
@@ -3094,15 +3103,17 @@ class _TutorialDialog extends StatelessWidget {
     };
     return AlertDialog(
       title: Text('${gameTitles[type]} tutorial'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < steps.length; i++)
-            ListTile(
-              leading: CircleAvatar(child: Text('${i + 1}')),
-              title: Text(steps[i]),
-            ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < steps.length; i++)
+              ListTile(
+                leading: CircleAvatar(child: Text('${i + 1}')),
+                title: Text(steps[i]),
+              ),
+          ],
+        ),
       ),
       actions: [
         FilledButton(

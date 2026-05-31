@@ -73,129 +73,204 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Center(
-                          child: Image.asset(
-                            Theme.of(context).brightness == Brightness.dark
-                                ? 'assets/logo_dark.png'
-                                : 'assets/logo_light.png',
-                            height: 80,
-                            fit: BoxFit.contain,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: Image.asset(
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? 'assets/logo_dark.png'
+                                  : 'assets/logo_light.png',
+                              height: 80,
+                              fit: BoxFit.contain,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Jump in and have fun!',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.nunito(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: scheme.onSurface.withValues(alpha: 0.6),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Jump in and have fun!',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface.withValues(alpha: 0.6),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(value: true, label: Text('Log In')),
-                            ButtonSegment(value: false, label: Text('Sign Up')),
+                          const SizedBox(height: 20),
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(value: true, label: Text('Log In')),
+                              ButtonSegment(
+                                value: false,
+                                label: Text('Sign Up'),
+                              ),
+                            ],
+                            selected: {_login},
+                            onSelectionChanged: (value) => setState(() {
+                              _login = value.first;
+                              _error = '';
+                            }),
+                          ),
+                          const SizedBox(height: 16),
+                          if (!_login) ...[
+                            _fieldPair(
+                              _field(
+                                _name,
+                                'Name',
+                                Icons.person_outline,
+                                validator: _minTwo,
+                              ),
+                              _field(
+                                _handle,
+                                'Handle',
+                                Icons.alternate_email,
+                                validator: _handleRule,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                           ],
-                          selected: {_login},
-                          onSelectionChanged: (value) => setState(() {
-                            _login = value.first;
-                            _error = '';
-                          }),
-                        ),
-                        const SizedBox(height: 16),
-                        if (!_login) ...[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: _field(_name, 'Name', Icons.person_outline, validator: _minTwo)),
-                              const SizedBox(width: 12),
-                              Expanded(child: _field(_handle, 'Handle', Icons.alternate_email, validator: _handleRule)),
-                            ],
+                          _field(
+                            _email,
+                            'Email',
+                            Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (value) => (value ?? '').contains('@')
+                                ? null
+                                : 'Enter a valid email.',
                           ),
                           const SizedBox(height: 12),
-                        ],
-                        _field(
-                          _email,
-                          'Email',
-                          Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) => (value ?? '').contains('@') ? null : 'Enter a valid email.',
-                        ),
-                        const SizedBox(height: 12),
-                        _field(
-                          _password,
-                          'Password',
-                          Icons.lock_outline,
-                          obscureText: !_showPassword,
-                          suffix: IconButton(
-                            icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _showPassword = !_showPassword),
-                          ),
-                          validator: (value) {
-                            final password = value ?? '';
-                            if (_login) return password.isEmpty ? 'Enter your password.' : null;
-                            final strong = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$');
-                            return strong.hasMatch(password) ? null : 'Use 10+ chars with upper, lower, number, and symbol.';
-                          },
-                        ),
-                        if (!_login) ...[
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 2, child: _field(_bio, 'Bio', Icons.info_outline, maxLines: 1)),
-                              const SizedBox(width: 12),
-                              Expanded(flex: 3, child: _field(_interests, 'Interests', Icons.interests_outlined)),
-                            ],
-                          ),
-                        ],
-                        if (_error.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: scheme.error.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(16),
+                          _field(
+                            _password,
+                            'Password',
+                            Icons.lock_outline,
+                            obscureText: !_showPassword,
+                            suffix: IconButton(
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _showPassword = !_showPassword,
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error_outline, color: scheme.error),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text(_error, style: TextStyle(color: scheme.error, fontWeight: FontWeight.bold))),
-                              ],
+                            validator: (value) {
+                              final password = value ?? '';
+                              if (_login) {
+                                return password.isEmpty
+                                    ? 'Enter your password.'
+                                    : null;
+                              }
+                              final strong = RegExp(
+                                r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$',
+                              );
+                              return strong.hasMatch(password)
+                                  ? null
+                                  : 'Use 10+ chars with upper, lower, number, and symbol.';
+                            },
+                          ),
+                          if (!_login) ...[
+                            const SizedBox(height: 12),
+                            _fieldPair(
+                              _field(
+                                _bio,
+                                'Bio',
+                                Icons.info_outline,
+                                maxLines: 1,
+                              ),
+                              _field(
+                                _interests,
+                                'Interests',
+                                Icons.interests_outlined,
+                              ),
                             ),
+                          ],
+                          if (_error.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: scheme.error.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: scheme.error,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _error,
+                                      style: TextStyle(
+                                        color: scheme.error,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: _busy ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: _busy
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _login ? 'Let\'s Go!' : 'Create Account',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ],
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _busy ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                          child: _busy
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Text(_login ? 'Let\'s Go!' : 'Create Account', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _fieldPair(Widget first, Widget second) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 380) {
+          return Column(children: [first, const SizedBox(height: 12), second]);
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: 12),
+            Expanded(child: second),
+          ],
+        );
+      },
     );
   }
 
@@ -219,24 +294,33 @@ class _AuthScreenState extends State<AuthScreen> {
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
         suffixIcon: suffix,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         isDense: true,
       ),
     );
   }
 
-  String? _minTwo(String? value) => (value ?? '').trim().length < 2 ? 'Enter at least 2 characters.' : null;
+  String? _minTwo(String? value) =>
+      (value ?? '').trim().length < 2 ? 'Enter at least 2 characters.' : null;
 
   String? _handleRule(String? value) {
     final clean = (value ?? '').trim();
     if (clean.length < 3) return 'Enter at least 3 characters.';
-    if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(clean)) return 'Use letters, numbers, dots, dashes, or underscores.';
+    if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(clean)) {
+      return 'Use letters, numbers, dots, dashes, or underscores.';
+    }
     return null;
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _busy = true; _error = ''; });
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
     final app = context.read<AppProvider>();
     final error = _login
         ? await app.signIn(email: _email.text, password: _password.text)
@@ -249,6 +333,9 @@ class _AuthScreenState extends State<AuthScreen> {
             interests: _interests.text,
           );
     if (!mounted) return;
-    setState(() { _busy = false; _error = error ?? ''; });
+    setState(() {
+      _busy = false;
+      _error = error ?? '';
+    });
   }
 }

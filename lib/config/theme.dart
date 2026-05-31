@@ -3,11 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
   // Brand Colors Extracted from Logo
-  static const primaryPop = Color(0xFF00D2D3); // Vibrant Cyan from Logo Chat Bubble
-  static const secondaryPop = Color(0xFF7C4DFF); // Vibrant Purple from Logo Center
+  static const primaryPop = Color(
+    0xFF00D2D3,
+  ); // Vibrant Cyan from Logo Chat Bubble
+  static const secondaryPop = Color(
+    0xFF7C4DFF,
+  ); // Vibrant Purple from Logo Center
   static const accentPop = Color(0xFFFF5252); // Vibrant Coral from Logo Wave
   static const warningPop = Color(0xFFFF4B4B); // Bright Red
-  
+
   // Semantic Colors (required by app)
   static const rose = accentPop;
   static const teal = primaryPop;
@@ -30,24 +34,24 @@ class VoxoraColors {
 
 class VoxoraTheme {
   static ThemeData light() => _buildTheme(
-        brightness: Brightness.light,
-        scaffold: VoxoraColors.lightBg,
-        surface: VoxoraColors.lightCard,
-        onSurface: const Color(0xFF0F172A),
-        primary: VoxoraColors.primaryPop,
-        secondary: VoxoraColors.secondaryPop,
-        border: VoxoraColors.lightBorder,
-      );
+    brightness: Brightness.light,
+    scaffold: VoxoraColors.lightBg,
+    surface: VoxoraColors.lightCard,
+    onSurface: const Color(0xFF0F172A),
+    primary: VoxoraColors.primaryPop,
+    secondary: VoxoraColors.secondaryPop,
+    border: VoxoraColors.lightBorder,
+  );
 
   static ThemeData dark() => _buildTheme(
-        brightness: Brightness.dark,
-        scaffold: VoxoraColors.darkBg,
-        surface: VoxoraColors.darkCard,
-        onSurface: const Color(0xFFF8FAFC),
-        primary: VoxoraColors.primaryPop,
-        secondary: VoxoraColors.secondaryPop,
-        border: VoxoraColors.darkBorder,
-      );
+    brightness: Brightness.dark,
+    scaffold: VoxoraColors.darkBg,
+    surface: VoxoraColors.darkCard,
+    onSurface: const Color(0xFFF8FAFC),
+    primary: VoxoraColors.primaryPop,
+    secondary: VoxoraColors.secondaryPop,
+    border: VoxoraColors.darkBorder,
+  );
 
   static ThemeData _buildTheme({
     required Brightness brightness,
@@ -70,11 +74,10 @@ class VoxoraTheme {
 
     // Nunito provides a very friendly, fun, rounded appearance
     final textTheme = GoogleFonts.nunitoTextTheme(
-      brightness == Brightness.dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
-    ).apply(
-      bodyColor: onSurface,
-      displayColor: onSurface,
-    );
+      brightness == Brightness.dark
+          ? ThemeData.dark().textTheme
+          : ThemeData.light().textTheme,
+    ).apply(bodyColor: onSurface, displayColor: onSurface);
 
     return ThemeData(
       useMaterial3: true,
@@ -113,7 +116,7 @@ class VoxoraTheme {
         color: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: border, width: 2),
         ),
       ),
@@ -123,9 +126,7 @@ class VoxoraTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: GoogleFonts.nunito(
             fontWeight: FontWeight.w800,
             fontSize: 18,
@@ -139,9 +140,7 @@ class VoxoraTheme {
           backgroundColor: surface,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: GoogleFonts.nunito(
             fontWeight: FontWeight.w800,
             fontSize: 16,
@@ -150,21 +149,29 @@ class VoxoraTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: brightness == Brightness.dark ? VoxoraColors.darkBg : VoxoraColors.lightBg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        fillColor: brightness == Brightness.dark
+            ? VoxoraColors.darkBg
+            : VoxoraColors.lightBg,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 24,
+          vertical: 18,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: border, width: 2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: border, width: 2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: primary, width: 2),
         ),
-        labelStyle: TextStyle(color: onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.w700),
+        labelStyle: TextStyle(
+          color: onSurface.withValues(alpha: 0.6),
+          fontWeight: FontWeight.w700,
+        ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surface,
@@ -177,20 +184,12 @@ class VoxoraTheme {
         backgroundColor: primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          foregroundColor: onSurface,
-        ),
+        style: IconButton.styleFrom(foregroundColor: onSurface),
       ),
-      dividerTheme: DividerThemeData(
-        color: border,
-        thickness: 2,
-        space: 2,
-      ),
+      dividerTheme: DividerThemeData(color: border, thickness: 2, space: 2),
     );
   }
 }

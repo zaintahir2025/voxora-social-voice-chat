@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -158,7 +159,10 @@ class _MessagesViewState extends State<MessagesView> {
                       value: selected,
                       title: Text(friend.fullName),
                       subtitle: Text('@${friend.handle}'),
-                      secondary: UserAvatar(url: friend.avatarUrl, seed: friend.handle),
+                      secondary: UserAvatar(
+                        url: friend.avatarUrl,
+                        seed: friend.handle,
+                      ),
                       onChanged: (value) {
                         setState(() {
                           if (value ?? false) {
@@ -237,10 +241,13 @@ class _MessagesViewState extends State<MessagesView> {
         .where((call) => call.conversationId == summary.conversation.id)
         .firstOrNull;
 
+    final availableHeight = MediaQuery.of(context).size.height - 180;
+    final panelHeight = math.max(460.0, math.min(720.0, availableHeight));
+
     return AppCard(
       padding: EdgeInsets.zero,
       child: SizedBox(
-        height: 620,
+        height: panelHeight,
         child: Column(
           children: [
             Padding(
@@ -475,6 +482,11 @@ class _CallDialogState extends State<CallDialog> {
       });
     }
     final video = widget.call.callType == 'video';
+    final dialogWidth = math.max(
+      280.0,
+      math.min(680.0, MediaQuery.of(context).size.width - 64),
+    );
+
     return AlertDialog(
       title: Row(
         children: [
@@ -484,72 +496,74 @@ class _CallDialogState extends State<CallDialog> {
         ],
       ),
       content: SizedBox(
-        width: 680,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (video)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  children: [
-                    Container(
-                      color: Colors.black,
-                      child: RTCVideoView(
-                        _controller.remoteRenderer,
-                        objectFit:
-                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                      ),
-                    ),
-                    Positioned(
-                      right: 12,
-                      bottom: 12,
-                      width: 150,
-                      height: 96,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(8),
+        width: dialogWidth,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (video)
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Stack(
+                    children: [
+                      Container(
+                        color: Colors.black,
+                        child: RTCVideoView(
+                          _controller.remoteRenderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: RTCVideoView(
-                            _controller.localRenderer,
-                            mirror: true,
-                            objectFit: RTCVideoViewObjectFit
-                                .RTCVideoViewObjectFitCover,
+                      ),
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        width: math.min(150.0, dialogWidth * 0.34),
+                        height: math.min(96.0, dialogWidth * 0.22),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: RTCVideoView(
+                              _controller.localRenderer,
+                              mirror: true,
+                              objectFit: RTCVideoViewObjectFit
+                                  .RTCVideoViewObjectFitCover,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 28),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: 1,
-                      height: 1,
-                      child: Opacity(
-                        opacity: 0,
-                        child: RTCVideoView(_controller.remoteRenderer),
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: 1,
+                        height: 1,
+                        child: Opacity(
+                          opacity: 0,
+                          child: RTCVideoView(_controller.remoteRenderer),
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.graphic_eq, size: 54),
-                    const SizedBox(height: 10),
-                    Text(_controller.status),
-                  ],
+                      const Icon(Icons.graphic_eq, size: 54),
+                      const SizedBox(height: 10),
+                      Text(_controller.status),
+                    ],
+                  ),
                 ),
+              const SizedBox(height: 14),
+              Text(
+                _controller.status,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            const SizedBox(height: 14),
-            Text(
-              _controller.status,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [
