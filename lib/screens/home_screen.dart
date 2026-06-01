@@ -190,7 +190,7 @@ class _Sidebar extends StatelessWidget {
                             UserAvatar(
                               url: app.profile?.avatarUrl,
                               size: 32,
-                              online: app.profile?.status == 'online',
+                              online: app.isProfileOnline(app.profile),
                               seed: app.profile?.handle,
                             ),
                             const SizedBox(width: 8),
@@ -564,7 +564,7 @@ class _Topbar extends StatelessWidget {
                 child: UserAvatar(
                   url: app.profile?.avatarUrl,
                   size: 44,
-                  online: app.profile?.status == 'online',
+                  online: app.isProfileOnline(app.profile),
                   seed: app.profile?.handle,
                 ),
               ),

@@ -47,9 +47,20 @@ class _ProfileViewState extends State<ProfileView> {
     final posts = app.posts
         .where((post) => post.authorId == person.id)
         .toList();
+    final profileFriends = app.friendsForProfile(person.id);
     final wide = MediaQuery.of(context).size.width >= 920;
-    final summary = _profileSummary(app, person, mine, posts.length);
+    final summary = _profileSummary(
+      app,
+      person,
+      mine,
+      posts.length,
+      profileFriends.length,
+    );
     final editor = mine ? _editor(app) : _profileActions(app, person);
+    final friendsCard = _friendsPreview(app, person, profileFriends);
+    final sidePanel = Column(
+      children: [editor, const SizedBox(height: 14), friendsCard],
+    );
 
     final header = wide
         ? Row(
@@ -57,10 +68,18 @@ class _ProfileViewState extends State<ProfileView> {
             children: [
               Expanded(child: summary),
               const SizedBox(width: 14),
-              SizedBox(width: 380, child: editor),
+              SizedBox(width: 380, child: sidePanel),
             ],
           )
-        : Column(children: [summary, const SizedBox(height: 14), editor]);
+        : Column(
+            children: [
+              summary,
+              const SizedBox(height: 14),
+              editor,
+              const SizedBox(height: 14),
+              friendsCard,
+            ],
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,6 +108,7 @@ class _ProfileViewState extends State<ProfileView> {
     Profile person,
     bool mine,
     int postCount,
+    int friendCount,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final showStatus =
@@ -166,7 +186,7 @@ class _ProfileViewState extends State<ProfileView> {
                       UserAvatar(
                         url: person.avatarUrl,
                         size: 92,
-                        online: person.status == 'online',
+                        online: app.isProfileOnline(person),
                         seed: person.handle,
                       ),
                       if (mine)
@@ -213,7 +233,12 @@ class _ProfileViewState extends State<ProfileView> {
                             icon: Icons.photo_library_outlined,
                             label: '$postCount posts',
                           ),
-                          if (showStatus) UserStatusChip(status: person.status),
+                          CountChip(
+                            icon: Icons.people_alt_outlined,
+                            label: '$friendCount friends',
+                          ),
+                          if (showStatus)
+                            UserStatusChip(status: app.statusFor(person)),
                         ],
                       ),
                       Text(
@@ -280,6 +305,94 @@ class _ProfileViewState extends State<ProfileView> {
               label: Text(
                 friendship == null ? 'Add friend' : 'Request pending',
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _friendsPreview(
+    AppProvider app,
+    Profile person,
+    List<Profile> friends,
+  ) {
+    final mine = person.id == app.profile?.id;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            icon: Icons.people_alt_outlined,
+            title: 'Friends',
+            subtitle: friends.isEmpty
+                ? 'No friends to show yet'
+                : '${friends.length} people',
+            trailing: mine
+                ? TextButton.icon(
+                    onPressed: () => app.setView(AppView.friends),
+                    icon: const Icon(Icons.person_add_alt_1, size: 18),
+                    label: const Text('Manage'),
+                  )
+                : null,
+          ),
+          if (friends.isEmpty)
+            Text(
+              mine
+                  ? 'Your accepted friends will show here.'
+                  : 'No visible friends yet.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 330 ? 3 : 2;
+                final width =
+                    (constraints.maxWidth - (columns - 1) * 10) / columns;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: friends.take(9).map((friend) {
+                    return SizedBox(
+                      width: width,
+                      child: InkWell(
+                        onTap: () => app.viewProfile(friend.id),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Column(
+                            children: [
+                              UserAvatar(
+                                url: friend.avatarUrl,
+                                size: 56,
+                                online: app.isProfileOnline(friend),
+                                seed: friend.handle,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                friend.fullName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                '@${friend.handle}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
             ),
         ],
       ),

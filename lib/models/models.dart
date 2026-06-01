@@ -9,6 +9,7 @@ class Profile {
   final List<String> interests;
   final String status;
   final String createdAt;
+  final String updatedAt;
 
   const Profile({
     required this.id,
@@ -21,9 +22,10 @@ class Profile {
     this.interests = const [],
     this.status = 'offline',
     required this.createdAt,
+    required this.updatedAt,
   });
 
-  Profile copyWith({String? status}) {
+  Profile copyWith({String? status, String? updatedAt}) {
     return Profile(
       id: id,
       email: email,
@@ -35,6 +37,7 @@ class Profile {
       interests: interests,
       status: status ?? this.status,
       createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -54,6 +57,8 @@ class Profile {
         const [],
     status: json['status'] as String? ?? 'offline',
     createdAt: json['created_at'] as String? ?? '',
+    updatedAt:
+        json['updated_at'] as String? ?? json['created_at'] as String? ?? '',
   );
 }
 
@@ -391,6 +396,17 @@ class CallSession {
     status: json['status'] as String? ?? 'ringing',
     createdAt: json['created_at'] as String? ?? '',
   );
+
+  CallSession copyWith({String? status}) {
+    return CallSession(
+      id: id,
+      conversationId: conversationId,
+      callerId: callerId,
+      callType: callType,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
 }
 
 class CallParticipant {

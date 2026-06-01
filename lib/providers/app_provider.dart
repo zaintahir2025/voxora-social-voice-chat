@@ -57,6 +57,10 @@ class AppNotification {
 class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const _profileColumns =
       'id, email, full_name, handle, avatar_url, cover_url, bio, interests, status, created_at, updated_at';
+  static const _onlineFreshWindow = Duration(seconds: 90);
+  static const _awayFreshWindow = Duration(minutes: 5);
+  static const _presenceHeartbeatInterval = Duration(seconds: 25);
+  static const _ringingCallTimeout = Duration(minutes: 2);
 
   final SupabaseClient _sb = Supabase.instance.client;
   final Random _rng = Random();
@@ -93,6 +97,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSub;
   RealtimeChannel? _realtimeChannel;
   Timer? _refreshTimer;
+  Timer? _presenceHeartbeatTimer;
   int _loadGeneration = 0;
   int _notificationSerial = 0;
   String? _presenceStatus;
@@ -130,11 +135,14 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get unreadNotificationCount =>
       _notifications.where((item) => !item.read).length;
 
+  List<ConversationSummary> get chatConversations =>
+      _conversations.where((summary) => summary.lastMessage != null).toList();
+
   ConversationSummary? get activeConversation =>
       _conversations
           .where((item) => item.conversation.id == _activeConversationId)
           .firstOrNull ??
-      _conversations.firstOrNull;
+      chatConversations.firstOrNull;
 
   List<DirectMessage> get messagesForActiveConversation {
     final id = activeConversation?.conversation.id;
@@ -200,10 +208,19 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Profile> get friends {
     final myId = _profile?.id;
     if (myId == null) return const [];
+    return friendsForProfile(myId);
+  }
+
+  List<Profile> friendsForProfile(String userId) {
     final ids = _friendships
-        .where((friendship) => friendship.status == 'accepted')
+        .where(
+          (friendship) =>
+              friendship.status == 'accepted' &&
+              (friendship.requesterId == userId ||
+                  friendship.addresseeId == userId),
+        )
         .map(
-          (friendship) => friendship.requesterId == myId
+          (friendship) => friendship.requesterId == userId
               ? friendship.addresseeId
               : friendship.requesterId,
         )
@@ -219,9 +236,11 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         .toList();
   }
 
-  List<CallSession> get liveCalls => _callSessions
-      .where((call) => call.status != 'ended' && call.status != 'missed')
-      .toList();
+  List<CallSession> get liveCalls => _callSessions.where(canJoinCall).toList();
+
+  CallSession? liveCallForConversation(String conversationId) => liveCalls
+      .where((call) => call.conversationId == conversationId)
+      .firstOrNull;
 
   CallSession? get incomingCall {
     final myId = _profile?.id;
@@ -231,9 +250,75 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           (call) =>
               call.status == 'ringing' &&
               call.callerId != myId &&
+              canJoinCall(call) &&
               participantForCall(call.id, myId)?.status == 'ringing',
         )
         .firstOrNull;
+  }
+
+  bool isProfileOnline(Profile? person) => statusFor(person) == 'online';
+
+  String statusFor(Profile? person) {
+    if (person == null) return 'offline';
+    final raw = person.status.trim().toLowerCase();
+    if (person.id == _profile?.id && _presenceStatus == 'online') {
+      return 'online';
+    }
+    if (raw == 'online' && _recentlyTouched(person, _onlineFreshWindow)) {
+      return 'online';
+    }
+    if (raw == 'away' && _recentlyTouched(person, _awayFreshWindow)) {
+      return 'away';
+    }
+    return 'offline';
+  }
+
+  String presenceLabel(Profile? person) {
+    final status = statusFor(person);
+    if (status == 'online') return 'Online';
+    if (status == 'away') return 'Away';
+    if (person == null) return 'Offline';
+    final lastSeen = _lastSeenTime(person);
+    if (lastSeen == null) return 'Offline';
+    final elapsed = DateTime.now().toUtc().difference(lastSeen.toUtc());
+    if (elapsed.inMinutes < 1) return 'Last seen just now';
+    if (elapsed.inMinutes < 60) return 'Last seen ${elapsed.inMinutes}m ago';
+    if (elapsed.inHours < 24) return 'Last seen ${elapsed.inHours}h ago';
+    return 'Last seen ${elapsed.inDays}d ago';
+  }
+
+  bool canStartCall(ConversationSummary conversation) {
+    final myId = _profile?.id;
+    if (myId == null) return false;
+    final others = conversation.members
+        .where((member) => member.id != myId)
+        .toList();
+    return others.isNotEmpty && others.every(isProfileOnline);
+  }
+
+  bool canJoinCall(CallSession call) {
+    if (call.status == 'ended' || call.status == 'missed') return false;
+    if (call.status == 'ringing' && _callIsExpired(call)) return false;
+    final myId = _profile?.id;
+    if (myId == null) return false;
+    final participant = participantForCall(call.id, myId);
+    if (participant == null ||
+        participant.status == 'declined' ||
+        participant.status == 'left') {
+      return false;
+    }
+    final summary = _conversations
+        .where((item) => item.conversation.id == call.conversationId)
+        .firstOrNull;
+    if (summary == null || !canStartCall(summary)) return false;
+    final activeParticipants = _callParticipants
+        .where(
+          (item) =>
+              item.callId == call.id &&
+              (item.status == 'ringing' || item.status == 'joined'),
+        )
+        .length;
+    return activeParticipants >= 2;
   }
 
   void init() {
@@ -243,6 +328,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _loading = false;
     } else {
       unawaited(_setPresenceStatus('online'));
+      _startPresenceHeartbeat();
       unawaited(loadAppData(_session!.user.id));
       _subscribeRealtime(_session!.user.id);
     }
@@ -250,6 +336,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       final previousUserId = _session?.user.id;
       _session = data.session;
       if (_session == null) {
+        _stopPresenceHeartbeat();
         if (previousUserId != null) {
           unawaited(
             _setPresenceStatus(
@@ -258,6 +345,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
               updateLocal: false,
             ),
           );
+          unawaited(_endLiveCallsForUser(previousUserId));
         }
         _clearSession();
         _loading = false;
@@ -267,6 +355,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         _loading = true;
         notifyListeners();
         unawaited(_setPresenceStatus('online'));
+        _startPresenceHeartbeat();
         unawaited(loadAppData(_session!.user.id));
         _subscribeRealtime(_session!.user.id);
       }
@@ -276,8 +365,10 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopPresenceHeartbeat();
     final userId = _session?.user.id;
     if (userId != null) {
+      unawaited(_endLiveCallsForUser(userId));
       unawaited(
         _setPresenceStatus('offline', userId: userId, updateLocal: false),
       );
@@ -294,23 +385,27 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_session == null) return;
     if (state == AppLifecycleState.resumed) {
       unawaited(_setPresenceStatus('online'));
+      _startPresenceHeartbeat();
       _syncGameMusic();
       return;
     }
     if (state == AppLifecycleState.inactive || state.name == 'hidden') {
+      _stopPresenceHeartbeat();
       unawaited(_setPresenceStatus('away'));
+      unawaited(_endLiveCallsForUser(_session!.user.id));
       unawaited(_audio.stopGameMusic());
       return;
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      _stopPresenceHeartbeat();
       unawaited(_setPresenceStatus('offline'));
+      unawaited(_endLiveCallsForUser(_session!.user.id));
       unawaited(_audio.stopGameMusic());
     }
   }
 
   void setView(AppView view) {
-    if (_view != view) unawaited(_audio.playTap());
     _view = view;
     _syncGameMusic();
     notifyListeners();
@@ -318,7 +413,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void toggleTheme() {
     _darkMode = !_darkMode;
-    unawaited(_audio.playTap());
     notifyListeners();
   }
 
@@ -406,15 +500,55 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void _startPresenceHeartbeat() {
+    _presenceHeartbeatTimer?.cancel();
+    _presenceHeartbeatTimer = Timer.periodic(_presenceHeartbeatInterval, (_) {
+      if (_session == null || _presenceStatus != 'online') return;
+      unawaited(_setPresenceStatus('online', force: true));
+      unawaited(_cleanupUnjoinableCalls());
+      notifyListeners();
+    });
+  }
+
+  void _stopPresenceHeartbeat() {
+    _presenceHeartbeatTimer?.cancel();
+    _presenceHeartbeatTimer = null;
+  }
+
+  DateTime? _lastSeenTime(Profile person) {
+    if (person.updatedAt.isNotEmpty) {
+      return DateTime.tryParse(person.updatedAt);
+    }
+    if (person.createdAt.isNotEmpty) {
+      return DateTime.tryParse(person.createdAt);
+    }
+    return null;
+  }
+
+  bool _recentlyTouched(Profile person, Duration window) {
+    final lastSeen = _lastSeenTime(person);
+    if (lastSeen == null) return false;
+    return DateTime.now().toUtc().difference(lastSeen.toUtc()) <= window;
+  }
+
+  bool _callIsExpired(CallSession call) {
+    final createdAt = DateTime.tryParse(call.createdAt);
+    if (createdAt == null) return false;
+    return DateTime.now().toUtc().difference(createdAt.toUtc()) >
+        _ringingCallTimeout;
+  }
+
   Future<void> _setPresenceStatus(
     String status, {
     String? userId,
     bool updateLocal = true,
+    bool force = false,
   }) async {
     final targetUserId = userId ?? _session?.user.id ?? _profile?.id;
     if (targetUserId == null) return;
-    if (userId == null && _presenceStatus == status) return;
+    if (!force && userId == null && _presenceStatus == status) return;
     if (userId == null) _presenceStatus = status;
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
 
     try {
       await _sb
@@ -423,11 +557,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           .eq('id', targetUserId);
       if (!updateLocal) return;
       if (_profile?.id == targetUserId) {
-        _profile = _profile!.copyWith(status: status);
+        _profile = _profile!.copyWith(status: status, updatedAt: updatedAt);
       }
       _profiles = [
         for (final person in _profiles)
-          person.id == targetUserId ? person.copyWith(status: status) : person,
+          person.id == targetUserId
+              ? person.copyWith(status: status, updatedAt: updatedAt)
+              : person,
       ];
       notifyListeners();
     } catch (_) {
@@ -516,12 +652,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadConversations(userId);
       await _loadCalls();
 
-      _activeConversationId ??= _conversations.firstOrNull?.conversation.id;
+      _activeConversationId ??= chatConversations.firstOrNull?.conversation.id;
       if (_activeConversationId != null &&
           !_conversations.any(
             (item) => item.conversation.id == _activeConversationId,
           )) {
-        _activeConversationId = _conversations.firstOrNull?.conversation.id;
+        _activeConversationId = chatConversations.firstOrNull?.conversation.id;
       }
       final visibleGames = _visibleGameSessions();
       _activeGameId ??= visibleGames.firstOrNull?.id;
@@ -687,6 +823,66 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _callParticipants = (participants as List)
         .map((item) => CallParticipant.fromJson(item))
         .toList();
+    await _cleanupUnjoinableCalls();
+  }
+
+  Future<void> _cleanupUnjoinableCalls() async {
+    final staleCallIds = _callSessions
+        .where((call) => !canJoinCall(call))
+        .where((call) => call.status != 'ended' && call.status != 'missed')
+        .map((call) => call.id)
+        .toSet();
+    if (staleCallIds.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    for (final callId in staleCallIds) {
+      await _sb
+          .from('call_sessions')
+          .update({'status': 'ended', 'ended_at': now})
+          .eq('id', callId);
+    }
+    _callSessions = [
+      for (final call in _callSessions)
+        staleCallIds.contains(call.id) ? call.copyWith(status: 'ended') : call,
+    ];
+    if (_activeCallId != null && staleCallIds.contains(_activeCallId)) {
+      _activeCallId = null;
+    }
+  }
+
+  Future<void> _endLiveCallsForUser(String userId) async {
+    final callIds = _callParticipants
+        .where((participant) => participant.userId == userId)
+        .map((participant) => participant.callId)
+        .toSet();
+    final activeCallIds = _callSessions
+        .where(
+          (call) =>
+              callIds.contains(call.id) &&
+              call.status != 'ended' &&
+              call.status != 'missed',
+        )
+        .map((call) => call.id)
+        .toSet();
+    if (activeCallIds.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    for (final callId in activeCallIds) {
+      await _sb
+          .from('call_participants')
+          .update({'status': 'left'})
+          .eq('call_id', callId)
+          .eq('user_id', userId);
+      await _sb
+          .from('call_sessions')
+          .update({'status': 'ended', 'ended_at': now})
+          .eq('id', callId);
+    }
+    _callSessions = [
+      for (final call in _callSessions)
+        activeCallIds.contains(call.id) ? call.copyWith(status: 'ended') : call,
+    ];
+    if (_activeCallId != null && activeCallIds.contains(_activeCallId)) {
+      _activeCallId = null;
+    }
   }
 
   void _subscribeRealtime(String userId) {
@@ -924,6 +1120,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (!_conversations.any((item) => item.conversation.id == conversationId)) {
       return;
     }
+    if (!isProfileOnline(profileById(callerId))) return;
 
     final type = record['call_type'] as String? ?? 'voice';
     _pushNotification(
@@ -1193,6 +1390,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
+    final userId = _session?.user.id;
+    _stopPresenceHeartbeat();
+    if (userId != null) {
+      await _endLiveCallsForUser(userId);
+      await _setPresenceStatus('offline', userId: userId, updateLocal: false);
+    }
     await _sb.auth.signOut();
     _session = null;
     _clearSession();
@@ -1567,6 +1770,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     String type,
   ) async {
     if (_profile == null) return null;
+    final existing = liveCallForConversation(conversation.conversation.id);
+    if (existing != null) return existing;
+    if (!canStartCall(conversation)) {
+      _showNotice('Call unavailable. Your friend must be online first.');
+      await _cleanupUnjoinableCalls();
+      return null;
+    }
     final row = await _sb
         .from('call_sessions')
         .insert({
@@ -1611,6 +1821,11 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> joinCall(CallSession call) async {
     if (_profile == null) return;
+    if (!canJoinCall(call)) {
+      await _cleanupUnjoinableCalls();
+      _showNotice('This call ended because someone went offline.');
+      return;
+    }
     final now = DateTime.now().toIso8601String();
     await _sb
         .from('call_participants')

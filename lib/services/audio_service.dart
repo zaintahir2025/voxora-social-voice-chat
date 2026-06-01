@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import 'audio_backend.dart';
@@ -22,7 +20,6 @@ class AudioService extends ChangeNotifier {
 
   Future<void> toggleSound() async {
     _soundEnabled = !_soundEnabled;
-    if (_soundEnabled) unawaited(playTap());
     notifyListeners();
   }
 

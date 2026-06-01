@@ -81,7 +81,7 @@ class _ComposerPrompt extends StatelessWidget {
           UserAvatar(
             url: app.profile?.avatarUrl,
             size: 44,
-            online: app.profile?.status == 'online',
+            online: app.isProfileOnline(app.profile),
             seed: app.profile?.handle,
           ),
           const SizedBox(width: 14),
@@ -133,11 +133,6 @@ class _StoryRail extends StatelessWidget {
     final people = <Profile>[
       if (app.profile != null) app.profile!,
       ...app.friends,
-      ...app.profiles.where(
-        (person) =>
-            person.id != app.profile?.id &&
-            !app.friends.any((friend) => friend.id == person.id),
-      ),
     ].take(12).toList();
     if (people.isEmpty) return const SizedBox.shrink();
 
@@ -195,7 +190,7 @@ class _StoryBubble extends StatelessWidget {
             UserAvatar(
               url: person.avatarUrl,
               size: 52,
-              online: person.status == 'online',
+              online: context.read<AppProvider>().isProfileOnline(person),
               seed: person.handle,
             ),
             const SizedBox(height: 7),
@@ -429,7 +424,7 @@ class PostCardState extends State<PostCard> {
                   customBorder: const CircleBorder(),
                   child: UserAvatar(
                     url: author?.avatarUrl,
-                    online: author?.status == 'online',
+                    online: app.isProfileOnline(author),
                     seed: author?.handle,
                   ),
                 ),

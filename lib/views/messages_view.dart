@@ -21,6 +21,7 @@ class _MessagesViewState extends State<MessagesView> {
   final _groupTitle = TextEditingController();
   final _firstMessage = TextEditingController();
   final Set<String> _selectedFriends = {};
+  String _chatQuery = '';
   bool _creatingGroup = false;
 
   @override
@@ -55,13 +56,27 @@ class _MessagesViewState extends State<MessagesView> {
   }
 
   Widget _conversationList(AppProvider app) {
+    final currentUserId = app.profile?.id ?? '';
+    final query = _chatQuery.trim().toLowerCase();
+    final conversations = app.chatConversations.where((summary) {
+      final title = summary.titleFor(currentUserId).toLowerCase();
+      final lastMessage = summary.lastMessage?.body.toLowerCase() ?? '';
+      return query.isEmpty ||
+          title.contains(query) ||
+          lastMessage.contains(query);
+    }).toList();
+
     return AppCard(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
-            icon: Icons.chat_bubble_outline,
-            title: 'Chat with friends',
+            icon: Icons.forum_outlined,
+            title: 'Chats',
+            subtitle: conversations.isEmpty
+                ? 'Your message inbox'
+                : '${conversations.length} active chats',
             trailing: IconButton(
               tooltip: _creatingGroup ? 'Close group builder' : 'Create group',
               icon: Icon(
@@ -74,11 +89,31 @@ class _MessagesViewState extends State<MessagesView> {
             _groupBuilder(app),
             const SizedBox(height: 14),
           ],
-          if (app.conversations.isEmpty)
-            const Text('Start a chat from the Friends page.')
+          TextField(
+            onChanged: (value) => setState(() => _chatQuery = value),
+            decoration: const InputDecoration(
+              hintText: 'Search chats',
+              prefixIcon: Icon(Icons.search_rounded),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 13,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (conversations.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: _InlineEmpty(
+                icon: Icons.chat_bubble_outline,
+                title: query.isEmpty ? 'No chats yet' : 'No chats found',
+                body: query.isEmpty
+                    ? 'Message a friend first; empty contacts stay out of this inbox.'
+                    : 'Try another name or message.',
+              ),
+            )
           else
-            ...app.conversations.map((summary) {
-              final currentUserId = app.profile?.id ?? '';
+            ...conversations.map((summary) {
               final title = summary.titleFor(currentUserId);
               final others = summary.members
                   .where((m) => m.id != currentUserId)
@@ -90,35 +125,14 @@ class _MessagesViewState extends State<MessagesView> {
                 summary.conversation.id,
               );
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  selected: active,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  leading: AvatarStack(members: others),
-                  title: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: unread > 0
-                          ? FontWeight.w900
-                          : FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    summary.lastMessage?.body ??
-                        '${summary.members.length} members',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: unread > 0
-                          ? FontWeight.w700
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: unread > 0 ? _ChatUnreadBadge(count: unread) : null,
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _ConversationTile(
+                  title: title,
+                  subtitle: summary.lastMessage?.body ?? '',
+                  active: active,
+                  unread: unread,
+                  avatar: AvatarStack(members: others, size: 42),
+                  time: summary.lastMessage?.createdAt,
                   onTap: () => app.selectConversation(summary.conversation.id),
                 ),
               );
@@ -161,6 +175,7 @@ class _MessagesViewState extends State<MessagesView> {
                       subtitle: Text('@${friend.handle}'),
                       secondary: UserAvatar(
                         url: friend.avatarUrl,
+                        online: app.isProfileOnline(friend),
                         seed: friend.handle,
                       ),
                       onChanged: (value) {
@@ -237,12 +252,15 @@ class _MessagesViewState extends State<MessagesView> {
         ),
       );
     });
-    final liveCall = app.liveCalls
-        .where((call) => call.conversationId == summary.conversation.id)
-        .firstOrNull;
+    final liveCall = app.liveCallForConversation(summary.conversation.id);
+    final canCall = app.canStartCall(summary);
+    final subtitle = summary.conversation.isGroup
+        ? '${summary.members.length} members'
+        : app.presenceLabel(others.firstOrNull);
 
     final availableHeight = MediaQuery.of(context).size.height - 180;
     final panelHeight = math.max(460.0, math.min(720.0, availableHeight));
+    final scheme = Theme.of(context).colorScheme;
 
     return AppCard(
       padding: EdgeInsets.zero,
@@ -254,7 +272,7 @@ class _MessagesViewState extends State<MessagesView> {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  AvatarStack(members: others),
+                  AvatarStack(members: others, size: 44),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -265,13 +283,13 @@ class _MessagesViewState extends State<MessagesView> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         Text(
-                          '${summary.members.length} members',
+                          subtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
-                  if (liveCall != null)
+                  if (liveCall != null && app.canJoinCall(liveCall))
                     if (liveCall.status == 'ringing' &&
                         liveCall.callerId != currentUserId) ...[
                       IconButton.filled(
@@ -311,12 +329,16 @@ class _MessagesViewState extends State<MessagesView> {
                     ActionIconButton(
                       icon: Icons.call_outlined,
                       tooltip: 'Audio call',
-                      onPressed: () => _startCall(app, summary, 'audio'),
+                      onPressed: canCall
+                          ? () => _startCall(app, summary, 'audio')
+                          : null,
                     ),
                     ActionIconButton(
                       icon: Icons.videocam_outlined,
                       tooltip: 'Video call',
-                      onPressed: () => _startCall(app, summary, 'video'),
+                      onPressed: canCall
+                          ? () => _startCall(app, summary, 'video')
+                          : null,
                     ),
                   ],
                 ],
@@ -324,25 +346,40 @@ class _MessagesViewState extends State<MessagesView> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(14),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final sender = app.profileById(message.senderId);
-                  return MessageBubble(
-                    name: message.senderId == currentUserId
-                        ? null
-                        : sender?.fullName,
-                    body: message.body,
-                    createdAt: message.createdAt,
-                    mine: message.senderId == currentUserId,
-                    receipt: app.readReceiptForMessage(
-                      message,
-                      summary.members,
-                    ),
-                  );
-                },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.28),
+                ),
+                child: messages.isEmpty
+                    ? const Center(
+                        child: _InlineEmpty(
+                          icon: Icons.waving_hand_outlined,
+                          title: 'Say hello',
+                          body: 'Send the first message to start this chat.',
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(14),
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final sender = app.profileById(message.senderId);
+                          return MessageBubble(
+                            name:
+                                summary.conversation.isGroup &&
+                                    message.senderId != currentUserId
+                                ? sender?.fullName
+                                : null,
+                            body: message.body,
+                            createdAt: message.createdAt,
+                            mine: message.senderId == currentUserId,
+                            receipt: app.readReceiptForMessage(
+                              message,
+                              summary.members,
+                            ),
+                          );
+                        },
+                      ),
               ),
             ),
             const Divider(height: 1),
@@ -398,6 +435,151 @@ class _MessagesViewState extends State<MessagesView> {
   }
 }
 
+class _ConversationTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool active;
+  final int unread;
+  final Widget avatar;
+  final String? time;
+  final VoidCallback onTap;
+
+  const _ConversationTile({
+    required this.title,
+    required this.subtitle,
+    required this.active,
+    required this.unread,
+    required this.avatar,
+    required this.time,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: active
+              ? scheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active
+                ? scheme.primary.withValues(alpha: 0.24)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            avatar,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: unread > 0
+                                ? FontWeight.w900
+                                : FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (time != null)
+                        Text(
+                          _time(time!),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: unread > 0
+                                ? scheme.onSurface
+                                : scheme.onSurface.withValues(alpha: 0.58),
+                            fontWeight: unread > 0
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (unread > 0) ...[
+                        const SizedBox(width: 8),
+                        _ChatUnreadBadge(count: unread),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _time(String raw) {
+    try {
+      final date = DateTime.parse(raw).toLocal();
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
+  }
+}
+
+class _InlineEmpty extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+
+  const _InlineEmpty({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 34, color: scheme.primary),
+          const SizedBox(height: 10),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 5),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatUnreadBadge extends StatelessWidget {
   final int count;
 
@@ -436,19 +618,21 @@ class CallDialog extends StatefulWidget {
 }
 
 class _CallDialogState extends State<CallDialog> {
+  late final AppProvider _app;
   late final FriendCallController _controller;
+  bool _ending = false;
 
   @override
   void initState() {
     super.initState();
-    final app = context.read<AppProvider>();
+    _app = context.read<AppProvider>();
     _controller = FriendCallController(
       callId: widget.call.id,
-      userId: app.profile!.id,
+      userId: _app.profile!.id,
       video: widget.call.callType == 'video',
     );
     _controller.addListener(_refresh);
-    unawaited(_joinAndStart(app));
+    unawaited(_joinAndStart(_app));
   }
 
   Future<void> _joinAndStart(AppProvider app) async {
@@ -461,11 +645,23 @@ class _CallDialogState extends State<CallDialog> {
   void dispose() {
     _controller.removeListener(_refresh);
     _controller.dispose();
+    final liveCall = _app.callById(widget.call.id);
+    if (!_ending &&
+        liveCall != null &&
+        liveCall.status != 'ended' &&
+        liveCall.status != 'missed') {
+      unawaited(_app.endCall(widget.call.id));
+    }
     super.dispose();
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (!_ending && _controller.status == 'Waiting for friend') {
+      _ending = true;
+      unawaited(_app.endCall(widget.call.id));
+    }
+    setState(() {});
   }
 
   @override
@@ -474,7 +670,8 @@ class _CallDialogState extends State<CallDialog> {
     final liveCall = app.callById(widget.call.id);
     if (liveCall == null ||
         liveCall.status == 'ended' ||
-        liveCall.status == 'missed') {
+        liveCall.status == 'missed' ||
+        !app.canJoinCall(liveCall)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
@@ -587,6 +784,7 @@ class _CallDialogState extends State<CallDialog> {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
           onPressed: () async {
+            _ending = true;
             await _controller.stop();
             await app.endCall(widget.call.id);
             if (context.mounted) Navigator.pop(context);
