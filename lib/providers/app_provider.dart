@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/constants.dart';
 import '../models/models.dart';
+import '../services/audio_service.dart';
 import '../services/ludo_rules.dart';
 
 enum AppView { feed, friends, messages, games, profile }
@@ -59,6 +60,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   final SupabaseClient _sb = Supabase.instance.client;
   final Random _rng = Random();
+  final AudioService _audio = AudioService.instance;
 
   Session? _session;
   Profile? _profile;
@@ -118,7 +120,9 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get loading => _loading;
   bool get darkMode => _darkMode;
   ThemeMode get themeMode => _darkMode ? ThemeMode.dark : ThemeMode.light;
-
+  bool get soundEnabled => _audio.soundEnabled;
+  bool get gameMusicEnabled => _audio.musicEnabled;
+  bool get gameMusicPlaying => _audio.gameMusicPlaying;
 
   String get notice => _notice;
   String get dataError => _dataError;
@@ -281,6 +285,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _authSub?.cancel();
     _refreshTimer?.cancel();
     _unsubscribeRealtime();
+    unawaited(_audio.stopGameMusic());
     super.dispose();
   }
 
@@ -289,25 +294,42 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_session == null) return;
     if (state == AppLifecycleState.resumed) {
       unawaited(_setPresenceStatus('online'));
+      _syncGameMusic();
       return;
     }
     if (state == AppLifecycleState.inactive || state.name == 'hidden') {
       unawaited(_setPresenceStatus('away'));
+      unawaited(_audio.stopGameMusic());
       return;
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       unawaited(_setPresenceStatus('offline'));
+      unawaited(_audio.stopGameMusic());
     }
   }
 
   void setView(AppView view) {
+    if (_view != view) unawaited(_audio.playTap());
     _view = view;
+    _syncGameMusic();
     notifyListeners();
   }
 
   void toggleTheme() {
     _darkMode = !_darkMode;
+    unawaited(_audio.playTap());
+    notifyListeners();
+  }
+
+  Future<void> toggleSound() async {
+    await _audio.toggleSound();
+    notifyListeners();
+  }
+
+  Future<void> toggleGameMusic() async {
+    await _audio.toggleMusic();
+    _syncGameMusic();
     notifyListeners();
   }
 
@@ -333,12 +355,14 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   void viewProfile(String userId) {
     _viewedProfileId = userId;
     _view = AppView.profile;
+    _syncGameMusic();
     notifyListeners();
   }
 
   void selectConversation(String id) {
     _activeConversationId = id;
     _view = AppView.messages;
+    _syncGameMusic();
     notifyListeners();
     unawaited(markConversationRead(id));
   }
@@ -346,6 +370,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   void selectGame(String id) {
     _activeGameId = id;
     _view = AppView.games;
+    _syncGameMusic();
     notifyListeners();
   }
 
@@ -364,12 +389,21 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _viewedProfileId = notification.profileId;
     }
     _view = notification.view;
+    _syncGameMusic();
     notifyListeners();
   }
 
   void _showNotice(String message) {
     _notice = message;
     notifyListeners();
+  }
+
+  void _syncGameMusic() {
+    if (_view == AppView.games) {
+      unawaited(_audio.startGameMusic());
+    } else {
+      unawaited(_audio.stopGameMusic());
+    }
   }
 
   Future<void> _setPresenceStatus(
@@ -1043,6 +1077,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     _notifications = [notification, ..._notifications].take(40).toList();
     _notice = body.trim().isEmpty ? title : '$title - $body';
+    unawaited(_audio.playNotification());
     notifyListeners();
   }
 
@@ -1094,6 +1129,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _activeCallId = null;
     _notice = '';
     _dataError = '';
+    unawaited(_audio.stopGameMusic());
   }
 
   Future<void> refresh({bool showLoader = false}) async {
@@ -1733,6 +1769,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     _activeGameId = gameId;
     _view = AppView.games;
+    _syncGameMusic();
     await refresh();
     _showNotice('Game code $inviteCode is ready.');
   }
@@ -1757,6 +1794,8 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final players = playersForGame(game.id);
     if (players.any((player) => player.userId == _profile!.id)) {
       _activeGameId = game.id;
+      _view = AppView.games;
+      _syncGameMusic();
       notifyListeners();
       return;
     }
@@ -1787,6 +1826,8 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         .eq('game_id', game.id)
         .eq('invited_user_id', _profile!.id);
     _activeGameId = game.id;
+    _view = AppView.games;
+    _syncGameMusic();
     await refresh();
   }
 
@@ -1870,6 +1911,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     final moved = board.move({'from': from, 'to': to, 'promotion': 'q'});
     if (!moved) return;
+    unawaited(_audio.playGameMove());
     final moves = List<String>.from(game.state['moves'] as List? ?? []);
     moves.add(
       board.history.isEmpty ? '$from-$to' : board.history.last.toString(),
@@ -1891,6 +1933,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final state = Map<String, dynamic>.from(game.state);
     if (state['dice'] != null || state['winner'] != null) return;
     final dice = _rng.nextInt(6) + 1;
+    unawaited(_audio.playGameMove());
     final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
     state['dice'] = dice;
     state['sixStreak'] = sixStreak;
@@ -1928,6 +1971,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _showNotice('That piece cannot move with this roll.');
       return;
     }
+    unawaited(_audio.playGameMove());
     state['dice'] = null;
     final winner = move.finished;
     if (winner) state['winner'] = mine.seat;
@@ -1978,6 +2022,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final table = Map<String, dynamic>.from(state['table'] as Map? ?? {});
     final hand = List<String>.from(hands[mine.seat] as List? ?? []);
     if (!hand.contains(card) || table[mine.seat] != null) return;
+    unawaited(_audio.playGameMove());
     hand.remove(card);
     hands[mine.seat] = hand;
     table[mine.seat] = card;

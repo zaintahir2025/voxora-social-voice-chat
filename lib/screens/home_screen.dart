@@ -63,7 +63,30 @@ class HomeScreen extends StatelessWidget {
                                         isWide ? 12 : 6,
                                         32,
                                       ),
-                                      child: const _ViewContent(),
+                                      child: AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 280,
+                                        ),
+                                        switchInCurve: Curves.easeOutCubic,
+                                        switchOutCurve: Curves.easeInCubic,
+                                        transitionBuilder: (child, animation) {
+                                          final slide = Tween<Offset>(
+                                            begin: const Offset(0.018, 0),
+                                            end: Offset.zero,
+                                          ).animate(animation);
+                                          return FadeTransition(
+                                            opacity: animation,
+                                            child: SlideTransition(
+                                              position: slide,
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        child: KeyedSubtree(
+                                          key: ValueKey(app.view),
+                                          child: const _ViewContent(),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -240,20 +263,31 @@ class _NavButton extends StatelessWidget {
     return InkWell(
       onTap: () => app.setView(item.view),
       borderRadius: BorderRadius.circular(12),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
         height: 38,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: active
+              ? scheme.primary.withValues(alpha: 0.10)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active
+                ? scheme.primary.withValues(alpha: 0.26)
+                : Colors.transparent,
+          ),
+        ),
         child: Row(
           children: [
             _UnreadBadge(
               count: unread,
-              child: Icon(
-                item.icon,
+              child: _AnimatedNavIcon(
+                icon: item.icon,
+                active: active,
                 size: 20,
-                color: active
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.5),
+                inactiveColor: scheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(width: 14),
@@ -312,7 +346,9 @@ class _BottomNav extends StatelessWidget {
                       child: InkWell(
                         onTap: () => app.setView(item.view),
                         borderRadius: BorderRadius.circular(8),
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutCubic,
                           height: 48,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
@@ -323,12 +359,13 @@ class _BottomNav extends StatelessWidget {
                           ),
                           child: _UnreadBadge(
                             count: unread,
-                            child: Icon(
-                              item.icon,
+                            child: _AnimatedNavIcon(
+                              icon: item.icon,
+                              active: active,
                               size: compact ? 24 : 26,
-                              color: active
-                                  ? scheme.primary
-                                  : scheme.onSurface.withValues(alpha: 0.4),
+                              inactiveColor: scheme.onSurface.withValues(
+                                alpha: 0.4,
+                              ),
                             ),
                           ),
                         ),
@@ -341,6 +378,43 @@ class _BottomNav extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedNavIcon extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final double size;
+  final Color inactiveColor;
+
+  const _AnimatedNavIcon({
+    required this.icon,
+    required this.active,
+    required this.size,
+    required this.inactiveColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: active ? 1 : 0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Transform.rotate(
+          angle: value * 0.05,
+          child: Transform.scale(
+            scale: 1 + value * 0.08,
+            child: Icon(
+              icon,
+              size: size,
+              color: Color.lerp(inactiveColor, scheme.primary, value),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -361,18 +435,32 @@ class _UnreadBadge extends StatelessWidget {
         Positioned(
           right: -6,
           top: -6,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: scheme.error,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              count > 9 ? '9+' : '$count',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.8, end: 1),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) {
+              return Transform.scale(scale: value, child: child);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: scheme.error,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.error.withValues(alpha: 0.28),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -424,6 +512,34 @@ class _Topbar extends StatelessWidget {
                     ),
             ),
             const _NotificationBell(),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                app.soundEnabled
+                    ? Icons.volume_up_rounded
+                    : Icons.volume_off_rounded,
+                size: 20,
+              ),
+              tooltip: app.soundEnabled ? 'Mute sounds' : 'Enable sounds',
+              onPressed: () => app.toggleSound(),
+              color: scheme.onSurface,
+            ),
+            if (app.view == AppView.games) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(
+                  app.gameMusicEnabled
+                      ? Icons.music_note_rounded
+                      : Icons.music_off_rounded,
+                  size: 20,
+                ),
+                tooltip: app.gameMusicEnabled
+                    ? 'Pause game music'
+                    : 'Play game music',
+                onPressed: () => app.toggleGameMusic(),
+                color: app.gameMusicPlaying ? scheme.primary : scheme.onSurface,
+              ),
+            ],
             const SizedBox(width: 8),
             IconButton(
               icon: Icon(
@@ -536,18 +652,32 @@ class _NotificationBell extends StatelessWidget {
           Positioned(
             right: 2,
             top: 2,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: scheme.error,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                unread > 9 ? '9+' : '$unread',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.86, end: 1),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.elasticOut,
+              builder: (context, scale, child) {
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: scheme.error,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.error.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  unread > 9 ? '9+' : '$unread',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -685,81 +815,89 @@ class _IncomingCallOverlay extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 400),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: scheme.primary,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 20,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    UserAvatar(
-                      url: caller?.avatarUrl,
-                      size: 56,
-                      seed: caller?.handle,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            caller?.fullName ?? 'Someone',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Colors.white,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.94, end: 1),
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutBack,
+                builder: (context, scale, child) {
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 20,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      UserAvatar(
+                        url: caller?.avatarUrl,
+                        size: 56,
+                        seed: caller?.handle,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              caller?.fullName ?? 'Someone',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          const Text(
-                            'is calling you!',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white70,
+                            const Text(
+                              'is calling you!',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white70,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton.filled(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white24,
-                        padding: const EdgeInsets.all(12),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white24,
+                          padding: const EdgeInsets.all(12),
+                        ),
+                        onPressed: () => app.declineCall(call),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                        ),
                       ),
-                      onPressed: () => app.declineCall(call),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white,
+                      const SizedBox(width: 12),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.all(12),
+                        ),
+                        onPressed: () {
+                          app.selectConversation(call.conversationId);
+                          showDialog<void>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => CallDialog(call: call),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.phone_in_talk_rounded,
+                          color: scheme.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton.filled(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: const EdgeInsets.all(12),
-                      ),
-                      onPressed: () {
-                        app.selectConversation(call.conversationId);
-                        showDialog<void>(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (_) => CallDialog(call: call),
-                        );
-                      },
-                      icon: Icon(
-                        Icons.phone_in_talk_rounded,
-                        color: scheme.primary,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

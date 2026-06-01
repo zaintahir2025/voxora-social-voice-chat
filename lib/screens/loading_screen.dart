@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:google_fonts/google_fonts.dart';
-
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
 
@@ -9,15 +7,22 @@ class LoadingScreen extends StatefulWidget {
   State<LoadingScreen> createState() => _LoadingScreenState();
 }
 
-class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProviderStateMixin {
+class _LoadingScreenState extends State<LoadingScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _bounce;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
-    _bounce = Tween<double>(begin: 0, end: -20).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+    _bounce = Tween<double>(
+      begin: 0,
+      end: -20,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -54,7 +59,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
             const SizedBox(height: 40),
             Text(
               'Getting things ready...',
-              style: GoogleFonts.nunito(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: scheme.onSurface.withValues(alpha: 0.8),

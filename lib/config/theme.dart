@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class VoxoraColors {
-  // Brand Colors Extracted from Logo
-  static const primaryPop = Color(
-    0xFF00D2D3,
-  ); // Vibrant Cyan from Logo Chat Bubble
-  static const secondaryPop = Color(
-    0xFF7C4DFF,
-  ); // Vibrant Purple from Logo Center
-  static const accentPop = Color(0xFFFF5252); // Vibrant Coral from Logo Wave
-  static const warningPop = Color(0xFFFF4B4B); // Bright Red
+  static const primaryPop = Color(0xFF00B8D9);
+  static const secondaryPop = Color(0xFF6D5DF7);
+  static const accentPop = Color(0xFFFF5C7A);
+  static const warningPop = Color(0xFFFF4B4B);
 
   // Semantic Colors (required by app)
   static const rose = accentPop;
@@ -21,15 +15,13 @@ class VoxoraColors {
   static const orange = Color(0xFFFF8A00);
   static const slate = Color(0xFF64748B);
 
-  // Dark Theme Colors (Matched from Logo Background)
-  static const darkBg = Color(0xFF1D242B); // Deep Slate from Dark Logo
-  static const darkCard = Color(0xFF263038); // Slightly lighter slate for cards
-  static const darkBorder = Color(0xFF333E48); // Subtle border
+  static const darkBg = Color(0xFF0E1117);
+  static const darkCard = Color(0xFF171D27);
+  static const darkBorder = Color(0xFF293241);
 
-  // Light Theme Colors (Matched from Logo Background)
-  static const lightBg = Color(0xFFFAF7F0); // Warm Cream from Light Logo
-  static const lightCard = Color(0xFFFFFFFF); // Pure White cards for contrast
-  static const lightBorder = Color(0xFFE8E5DF); // Subtle matching border
+  static const lightBg = Color(0xFFF6F8FB);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightBorder = Color(0xFFE2E8F0);
 }
 
 class VoxoraTheme {
@@ -72,12 +64,11 @@ class VoxoraTheme {
       error: VoxoraColors.warningPop,
     );
 
-    // Nunito provides a very friendly, fun, rounded appearance
-    final textTheme = GoogleFonts.nunitoTextTheme(
-      brightness == Brightness.dark
-          ? ThemeData.dark().textTheme
-          : ThemeData.light().textTheme,
-    ).apply(bodyColor: onSurface, displayColor: onSurface);
+    final textTheme =
+        (brightness == Brightness.dark
+                ? ThemeData.dark(useMaterial3: true).textTheme
+                : ThemeData.light(useMaterial3: true).textTheme)
+            .apply(bodyColor: onSurface, displayColor: onSurface);
 
     return ThemeData(
       useMaterial3: true,
@@ -85,29 +76,49 @@ class VoxoraTheme {
       scaffoldBackgroundColor: scaffold,
       colorScheme: scheme,
       textTheme: textTheme.copyWith(
-        headlineMedium: GoogleFonts.nunito(
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
+        headlineMedium: TextStyle(
+          fontSize: 27,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
           color: onSurface,
         ),
-        titleLarge: GoogleFonts.nunito(
-          fontSize: 22,
+        titleLarge: TextStyle(
+          fontSize: 21,
           fontWeight: FontWeight.w800,
+          letterSpacing: 0,
           color: onSurface,
         ),
-        bodyMedium: GoogleFonts.nunito(
-          fontSize: 16,
+        titleMedium: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+          color: onSurface,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 15.5,
           fontWeight: FontWeight.w600,
+          letterSpacing: 0,
           color: onSurface.withValues(alpha: 0.8),
+        ),
+        bodySmall: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+          color: onSurface.withValues(alpha: 0.62),
+        ),
+        labelLarge: const TextStyle(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
         ),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: scaffold,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.nunito(
+        titleTextStyle: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w800,
+          letterSpacing: 0,
           color: onSurface,
         ),
         iconTheme: IconThemeData(color: primary),
@@ -123,27 +134,43 @@ class VoxoraTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: Colors.white,
+          foregroundColor: const Color(0xFF061014),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: GoogleFonts.nunito(
+          textStyle: const TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: 18,
+            fontSize: 16,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: const Color(0xFF061014),
+          disabledBackgroundColor: border.withValues(alpha: 0.65),
+          disabledForegroundColor: onSurface.withValues(alpha: 0.42),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primary,
-          side: BorderSide(color: border, width: 2),
+          side: BorderSide(color: border, width: 1),
           backgroundColor: surface,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: GoogleFonts.nunito(
+          textStyle: const TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: 16,
+            fontSize: 15,
+            letterSpacing: 0,
           ),
         ),
       ),
@@ -158,11 +185,11 @@ class VoxoraTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: border, width: 2),
+          borderSide: BorderSide(color: border, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: border, width: 2),
+          borderSide: BorderSide(color: border, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -188,6 +215,37 @@ class VoxoraTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(foregroundColor: onSurface),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surface,
+        side: BorderSide(color: border),
+        labelStyle: TextStyle(
+          color: onSurface.withValues(alpha: 0.74),
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: border),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: onSurface,
+        contentTextStyle: TextStyle(
+          color: surface,
+          fontWeight: FontWeight.w700,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: primary,
+        selectionColor: primary.withValues(alpha: 0.28),
+        selectionHandleColor: primary,
       ),
       dividerTheme: DividerThemeData(color: border, thickness: 2, space: 2),
     );

@@ -40,7 +40,8 @@ jobs:
             --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }} \
             --dart-define=APP_PUBLIC_URL=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ \
-            --base-href "/${{ github.event.repository.name }}/"
+            --base-href "/${{ github.event.repository.name }}/" \
+            --no-wasm-dry-run
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:

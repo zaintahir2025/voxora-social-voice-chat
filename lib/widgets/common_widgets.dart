@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../models/models.dart';
 
-class AppCard extends StatelessWidget {
+class AppCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
-  final Gradient? gradient;
   final Color? borderColor;
 
   const AppCard({
@@ -14,28 +13,54 @@ class AppCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(18),
     this.color,
-    this.gradient,
     this.borderColor,
   });
+
+  @override
+  State<AppCard> createState() => _AppCardState();
+}
+
+class _AppCardState extends State<AppCard> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: gradient == null ? color ?? scheme.surface : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color:
-              borderColor ??
-              (dark ? VoxoraColors.darkBorder : VoxoraColors.lightBorder),
-          width: 1,
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        scale: _hovered ? 1.006 : 1,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: widget.color ?? scheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color:
+                  widget.borderColor ??
+                  (dark ? VoxoraColors.darkBorder : VoxoraColors.lightBorder),
+              width: _hovered ? 1.4 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: _hovered ? (dark ? 0.26 : 0.09) : (dark ? 0.20 : 0.05),
+                ),
+                blurRadius: _hovered ? 24 : 18,
+                offset: Offset(0, _hovered ? 11 : 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(padding: widget.padding, child: widget.child),
         ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(padding: padding, child: child),
     );
   }
 }

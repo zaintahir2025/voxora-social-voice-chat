@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter/foundation.dart';
 import '../config/constants.dart';
+import '../services/audio_service.dart';
 import '../services/bot_service.dart';
 import '../services/ludo_rules.dart';
 
@@ -29,6 +31,7 @@ class BotGameProvider extends ChangeNotifier {
   static const playerId = 'player';
 
   final _rng = Random();
+  final AudioService _audio = AudioService.instance;
   final List<BotGame> _games = [];
   String? _selectedGameId;
   bool _botThinking = false;
@@ -87,6 +90,7 @@ class BotGameProvider extends ChangeNotifier {
     final board = chess_lib.Chess.fromFEN(game.state['fen'] as String);
     final moved = board.move({'from': from, 'to': to, 'promotion': 'q'});
     if (!moved) return;
+    unawaited(_audio.playGameMove());
 
     final moves = List<String>.from(game.state['moves'] as List? ?? []);
     moves.add(
@@ -120,6 +124,7 @@ class BotGameProvider extends ChangeNotifier {
       final bestMove = ChessBot.getBestMove(board.fen, depth: 3);
       if (bestMove != null) {
         board.move(bestMove);
+        unawaited(_audio.playGameMove());
         final moves = List<String>.from(game.state['moves'] as List? ?? []);
         moves.add(bestMove);
         game.state = {'fen': board.fen, 'moves': moves};
@@ -182,6 +187,7 @@ class BotGameProvider extends ChangeNotifier {
     if (game.players[turn] != playerId || state['dice'] != null) return;
 
     final dice = _rng.nextInt(6) + 1;
+    unawaited(_audio.playGameMove());
     final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
     state['dice'] = dice;
     state['sixStreak'] = sixStreak;
@@ -217,6 +223,7 @@ class BotGameProvider extends ChangeNotifier {
     }
     final move = applyLudoMove(state, color, tokenIndex, dice);
     if (move == null) return;
+    unawaited(_audio.playGameMove());
     state['dice'] = null;
 
     game.state = state;
@@ -243,6 +250,7 @@ class BotGameProvider extends ChangeNotifier {
         return;
       }
       final dice = _rng.nextInt(6) + 1;
+      unawaited(_audio.playGameMove());
       final sixStreak = dice == 6 ? ((state['sixStreak'] as int?) ?? 0) + 1 : 0;
       state['dice'] = dice;
       state['sixStreak'] = sixStreak;
@@ -362,6 +370,7 @@ class BotGameProvider extends ChangeNotifier {
     final table = Map<String, dynamic>.from(state['table'] as Map);
     final hand = List<String>.from(hands[playerId] as List? ?? []);
     if (!hand.contains(card) || table[playerId] != null) return;
+    unawaited(_audio.playGameMove());
     hand.remove(card);
     hands[playerId] = hand;
     table[playerId] = card;
@@ -391,6 +400,7 @@ class BotGameProvider extends ChangeNotifier {
         final hand = List<String>.from(hands[id] as List? ?? []);
         final card = CardsBot.chooseCard(hand, table, order);
         if (card == null) continue;
+        unawaited(_audio.playGameMove());
         hand.remove(card);
         hands[id] = hand;
         table[id] = card;

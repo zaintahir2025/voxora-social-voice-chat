@@ -37,10 +37,26 @@ class _FeedViewState extends State<FeedView> {
                     'Picture posts from you and your friends will appear here.',
               )
             else
-              ...app.posts.map(
-                (post) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: PostCard(post: post),
+              ...app.posts.asMap().entries.map(
+                (entry) => TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: Duration(
+                    milliseconds: 260 + min(entry.key, 5) * 45,
+                  ),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, 14 * (1 - value)),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: PostCard(post: entry.value),
+                  ),
                 ),
               ),
           ],
@@ -400,9 +416,7 @@ class PostCardState extends State<PostCard> {
         children: [
           Container(
             height: 4,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-            ),
+            decoration: BoxDecoration(color: scheme.primary),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
@@ -664,7 +678,11 @@ class _CommentRowState extends State<_CommentRow> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              UserAvatar(url: author?.avatarUrl, size: 28, seed: author?.handle),
+              UserAvatar(
+                url: author?.avatarUrl,
+                size: 28,
+                seed: author?.handle,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Container(

@@ -840,14 +840,6 @@ class _ChessBoardState extends State<_ChessBoard> {
     setState(() => _selected = piece == null ? null : square);
   }
 
-  // ignore: unused_element
-  String _piece(chess_lib.Piece piece) {
-    const white = {'p': '♙', 'r': '♖', 'n': '♘', 'b': '♗', 'q': '♕', 'k': '♔'};
-    const black = {'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚'};
-    final type = piece.type.toString().toLowerCase();
-    return piece.color == chess_lib.Color.WHITE ? white[type]! : black[type]!;
-  }
-
   String _chessStatus(chess_lib.Chess board) {
     if (board.in_checkmate) return 'Checkmate';
     if (board.in_draw) return 'Draw';
@@ -2284,11 +2276,7 @@ class _CardTableFelt extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0E5F49), Color(0xFF123B32)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF0E5F49),
         border: Border.all(color: Colors.white24),
         boxShadow: const [
           BoxShadow(
@@ -2969,12 +2957,7 @@ class _CardBackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final base = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF1D4ED8), Color(0xFF7C2D12)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(rect);
+    final base = Paint()..color = const Color(0xFF1D4ED8);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(8)),
       base,

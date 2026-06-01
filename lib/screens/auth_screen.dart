@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -42,17 +41,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              scheme.surfaceContainerHighest,
-              scheme.surface,
-              scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            ],
-          ),
-        ),
+        decoration: BoxDecoration(color: scheme.surfaceContainerHighest),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -92,7 +81,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           Text(
                             'Jump in and have fun!',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.nunito(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: scheme.onSurface.withValues(alpha: 0.6),
