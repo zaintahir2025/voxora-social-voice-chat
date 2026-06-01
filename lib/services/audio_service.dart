@@ -48,6 +48,10 @@ class AudioService extends ChangeNotifier {
     return _playSfx(_backend.playGameMove, throttleMs: 90);
   }
 
+  Future<void> playVictory() {
+    return _playSfx(_backend.playVictory, throttleMs: 700);
+  }
+
   Future<void> startGameMusic() async {
     if (!_musicEnabled || _gameMusicPlaying) return;
     try {

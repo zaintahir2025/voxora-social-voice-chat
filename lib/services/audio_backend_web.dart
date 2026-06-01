@@ -8,6 +8,7 @@ class PlatformAudioBackend {
   web.AudioContext? _context;
   web.GainNode? _musicGain;
   Timer? _musicTimer;
+  final Random _random = Random();
   int _step = 0;
 
   Future<void> playNotification() async {
@@ -26,6 +27,31 @@ class PlatformAudioBackend {
     _playTone(360, 0.06, volume: 0.045);
     await Future<void>.delayed(const Duration(milliseconds: 45));
     _playTone(620, 0.08, volume: 0.035);
+  }
+
+  Future<void> playVictory() async {
+    _playTone(180, 0.18, volume: 0.08, type: 'triangle');
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    for (final frequency in [523.25, 659.25, 783.99, 1046.5]) {
+      _playTone(frequency, 0.16, volume: 0.045);
+      await Future<void>.delayed(const Duration(milliseconds: 85));
+    }
+    for (var burst = 0; burst < 3; burst++) {
+      _playTone(
+        (120 + burst * 35).toDouble(),
+        0.16,
+        volume: 0.075,
+        type: 'triangle',
+      );
+      for (var spark = 0; spark < 7; spark++) {
+        final frequency = 760 + _random.nextDouble() * 980;
+        final delay = 20 + _random.nextInt(95);
+        Timer(Duration(milliseconds: delay), () {
+          _playTone(frequency, 0.09, volume: 0.022, type: 'square');
+        });
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+    }
   }
 
   Future<void> startGameMusic() async {
@@ -69,11 +95,12 @@ class PlatformAudioBackend {
     double seconds, {
     required double volume,
     web.AudioNode? destination,
+    String type = 'sine',
   }) {
     try {
       final context = _ensureContext();
       final oscillator = context.createOscillator()
-        ..type = 'sine'
+        ..type = type
         ..frequency.value = frequency;
       final gain = context.createGain()..gain.value = volume;
       oscillator.connect(gain);

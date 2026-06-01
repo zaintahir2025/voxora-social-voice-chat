@@ -1916,10 +1916,25 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     moves.add(
       board.history.isEmpty ? '$from-$to' : board.history.last.toString(),
     );
-    final patch = {
-      'state': {'fen': board.fen, 'moves': moves},
-      'current_seat': board.turn == chess_lib.Color.WHITE ? 'white' : 'black',
+    final state = <String, dynamic>{'fen': board.fen, 'moves': moves};
+    final nextSeat = board.turn == chess_lib.Color.WHITE ? 'white' : 'black';
+    String? winnerSeat;
+    String? winnerId;
+    if (board.game_over && board.in_checkmate) {
+      winnerSeat = nextSeat == 'white' ? 'black' : 'white';
+      winnerId = playersForGame(
+        game.id,
+      ).where((player) => player.seat == winnerSeat).firstOrNull?.userId;
+      state['winner'] = winnerSeat;
+      state['endedReason'] = 'checkmate';
+    } else if (board.game_over) {
+      state['endedReason'] = 'draw';
+    }
+    final patch = <String, dynamic>{
+      'state': state,
+      'current_seat': winnerSeat ?? nextSeat,
       'status': board.game_over ? 'finished' : 'active',
+      if (winnerId != null) 'winner_id': winnerId,
     };
     await updateGame(game, patch);
   }
@@ -2037,10 +2052,25 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final nextSeat = allPlayed
         ? (state['order'] as List).first as String
         : _nextCardSeat(order, table, mine.seat);
+    final finished = _cardsFinished(state);
+    String? winnerSeat;
+    String? winnerId;
+    if (finished) {
+      winnerSeat = _cardWinnerSeat(state);
+      if (winnerSeat != null) {
+        state['winner'] = winnerSeat;
+        winnerId = playersForGame(
+          game.id,
+        ).where((player) => player.seat == winnerSeat).firstOrNull?.userId;
+      } else {
+        state['endedReason'] = 'tie';
+      }
+    }
     await updateGame(game, {
       'state': state,
-      'current_seat': nextSeat,
-      'status': _cardsFinished(state) ? 'finished' : 'active',
+      'current_seat': winnerSeat ?? nextSeat,
+      'status': finished ? 'finished' : 'active',
+      if (winnerId != null) 'winner_id': winnerId,
     });
   }
 
@@ -2079,6 +2109,19 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     final order = List<String>.from(state['order'] as List? ?? []);
     return order.isNotEmpty &&
         order.every((seat) => (hands[seat] as List? ?? const []).isEmpty);
+  }
+
+  String? _cardWinnerSeat(Map<String, dynamic> state) {
+    final scores = Map<String, dynamic>.from(state['scores'] as Map? ?? {});
+    final order = List<String>.from(state['order'] as List? ?? []);
+    if (order.isEmpty) return null;
+    final topScore = order
+        .map((seat) => (scores[seat] as int?) ?? 0)
+        .fold<int>(0, max);
+    final leaders = order
+        .where((seat) => ((scores[seat] as int?) ?? 0) == topScore)
+        .toList();
+    return leaders.length == 1 ? leaders.first : null;
   }
 
   List<int> _ludoTokens(Map<String, dynamic> state, String color) {

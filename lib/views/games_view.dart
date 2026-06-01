@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:chess/chess.dart' as chess_lib;
@@ -8,6 +9,7 @@ import '../config/theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../providers/bot_game_provider.dart';
+import '../services/audio_service.dart';
 import '../services/ludo_rules.dart';
 import '../widgets/common_widgets.dart';
 
@@ -20,7 +22,9 @@ class GamesView extends StatefulWidget {
 
 class _GamesViewState extends State<GamesView> {
   final _joinCode = TextEditingController();
+  final Set<String> _shownVictoryKeys = <String>{};
   String? _selectedBotId;
+  bool _victoryDialogOpen = false;
 
   @override
   void dispose() {
@@ -48,6 +52,7 @@ class _GamesViewState extends State<GamesView> {
             },
           )
         : _GameStage.friend(game: app.activeGame);
+    _maybeShowVictory(_victoryFor(app, selectedBot));
 
     if (wide) {
       return Row(
@@ -230,6 +235,286 @@ class _GamesViewState extends State<GamesView> {
       'cards' => Icons.style_outlined,
       _ => Icons.sports_esports_outlined,
     };
+  }
+
+  _GameCelebration? _victoryFor(AppProvider app, BotGame? selectedBot) {
+    if (selectedBot != null) {
+      final result = selectedBot.result;
+      if (result == null || !_isWinningResult(result)) return null;
+      final gameTitle =
+          gameTitles[selectedBot.gameType] ?? selectedBot.gameType;
+      return _GameCelebration(
+        key: 'bot:${selectedBot.id}:$result',
+        title: 'Victory!',
+        body: '$result Fireworks earned in $gameTitle.',
+        gameType: selectedBot.gameType,
+      );
+    }
+
+    final game = app.activeGame;
+    final profileId = app.profile?.id;
+    if (game == null || profileId == null || game.status != 'finished') {
+      return null;
+    }
+    final mySeat = app.myPlayerForGame(game.id)?.seat;
+    final stateWinner = game.state['winner'] as String?;
+    final wonById = game.winnerId == profileId;
+    final wonBySeat = stateWinner != null && stateWinner == mySeat;
+    if (!wonById && !wonBySeat) return null;
+    final gameTitle = gameTitles[game.gameType] ?? game.gameType;
+    return _GameCelebration(
+      key: 'friend:${game.id}:${game.winnerId ?? stateWinner}',
+      title: 'You won $gameTitle!',
+      body: 'Clean finish. The room is yours for this round.',
+      gameType: game.gameType,
+    );
+  }
+
+  bool _isWinningResult(String result) {
+    return result.toLowerCase().startsWith('you win');
+  }
+
+  void _maybeShowVictory(_GameCelebration? celebration) {
+    if (celebration == null ||
+        _victoryDialogOpen ||
+        _shownVictoryKeys.contains(celebration.key)) {
+      return;
+    }
+    _shownVictoryKeys.add(celebration.key);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _victoryDialogOpen = true;
+      unawaited(AudioService.instance.playVictory());
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => _VictoryDialog(celebration: celebration),
+      );
+      if (mounted) _victoryDialogOpen = false;
+    });
+  }
+}
+
+class _GameCelebration {
+  final String key;
+  final String title;
+  final String body;
+  final String gameType;
+
+  const _GameCelebration({
+    required this.key,
+    required this.title,
+    required this.body,
+    required this.gameType,
+  });
+}
+
+class _VictoryDialog extends StatelessWidget {
+  final _GameCelebration celebration;
+
+  const _VictoryDialog({required this.celebration});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Dialog(
+      insetPadding: const EdgeInsets.all(20),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.38)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.38 : 0.16),
+                blurRadius: 30,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 132,
+                width: double.infinity,
+                child: _FireworksShow(gameType: celebration.gameType),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Icon(
+                  Icons.emoji_events_rounded,
+                  color: scheme.primary,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                celebration.title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                celebration.body,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.celebration_rounded),
+                  label: const Text('Awesome'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FireworksShow extends StatefulWidget {
+  final String gameType;
+
+  const _FireworksShow({required this.gameType});
+
+  @override
+  State<_FireworksShow> createState() => _FireworksShowState();
+}
+
+class _FireworksShowState extends State<_FireworksShow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _FireworksPainter(
+            progress: _controller.value,
+            brightness: Theme.of(context).brightness,
+            gameType: widget.gameType,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FireworksPainter extends CustomPainter {
+  final double progress;
+  final Brightness brightness;
+  final String gameType;
+
+  const _FireworksPainter({
+    required this.progress,
+    required this.brightness,
+    required this.gameType,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final colors = [
+      VoxoraColors.primaryPop,
+      VoxoraColors.accentPop,
+      VoxoraColors.teal,
+      VoxoraColors.orange,
+      VoxoraColors.green,
+    ];
+    final centers = [
+      Offset(size.width * 0.22, size.height * 0.58),
+      Offset(size.width * 0.50, size.height * 0.34),
+      Offset(size.width * 0.78, size.height * 0.55),
+    ];
+    final basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < centers.length; i++) {
+      final local = (progress + i * 0.32) % 1;
+      final eased = Curves.easeOutCubic.transform(local);
+      final opacity = (1 - local).clamp(0.0, 1.0);
+      final center = centers[i];
+      final color = colors[(i + gameType.length) % colors.length];
+      final radius = 10 + eased * 48;
+
+      basePaint
+        ..color = color.withValues(alpha: 0.35 * opacity)
+        ..strokeWidth = 2.2;
+      canvas.drawCircle(center, radius, basePaint);
+
+      for (var spark = 0; spark < 14; spark++) {
+        final angle = (pi * 2 / 14) * spark + i * 0.25;
+        final inner = radius * 0.42;
+        final outer = radius * (0.78 + (spark.isEven ? 0.12 : 0));
+        final from = center + Offset(cos(angle) * inner, sin(angle) * inner);
+        final to = center + Offset(cos(angle) * outer, sin(angle) * outer);
+        basePaint
+          ..color = colors[(spark + i) % colors.length].withValues(
+            alpha: 0.72 * opacity,
+          )
+          ..strokeWidth = spark.isEven ? 2.5 : 1.6;
+        canvas.drawLine(from, to, basePaint);
+      }
+
+      final dotPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color.withValues(alpha: 0.85 * opacity);
+      canvas.drawCircle(center, 3.5 + (1 - opacity) * 2, dotPaint);
+    }
+
+    final ground = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color =
+          (brightness == Brightness.dark ? Colors.white : VoxoraColors.darkBg)
+              .withValues(alpha: 0.12);
+    canvas.drawLine(
+      Offset(size.width * 0.18, size.height - 8),
+      Offset(size.width * 0.82, size.height - 8),
+      ground,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _FireworksPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.brightness != brightness ||
+        oldDelegate.gameType != gameType;
   }
 }
 
