@@ -284,6 +284,36 @@ class PostShare {
   );
 }
 
+class Story {
+  final String id;
+  final String authorId;
+  final String caption;
+  final String imageUrl;
+  final String storagePath;
+  final String createdAt;
+  final String expiresAt;
+
+  const Story({
+    required this.id,
+    required this.authorId,
+    required this.caption,
+    required this.imageUrl,
+    required this.storagePath,
+    required this.createdAt,
+    required this.expiresAt,
+  });
+
+  factory Story.fromJson(Map<String, dynamic> json) => Story(
+    id: json['id'] as String,
+    authorId: json['author_id'] as String,
+    caption: json['caption'] as String? ?? '',
+    imageUrl: json['image_url'] as String,
+    storagePath: json['storage_path'] as String? ?? '',
+    createdAt: json['created_at'] as String? ?? '',
+    expiresAt: json['expires_at'] as String? ?? '',
+  );
+}
+
 class GameSession {
   final String id;
   final String hostId;

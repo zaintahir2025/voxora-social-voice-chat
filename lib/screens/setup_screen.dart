@@ -32,7 +32,9 @@ class SetupScreen extends StatelessWidget {
                     child: Card(
                       margin: EdgeInsets.zero,
                       child: Padding(
-                        padding: const EdgeInsets.all(28),
+                        padding: EdgeInsets.all(
+                          constraints.maxWidth < 420 ? 22 : 28,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -49,7 +51,7 @@ class SetupScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'Pass SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define before running the app.',
+                              'Set your Supabase credentials with --dart-define before running the app.',
                               style: Theme.of(context).textTheme.bodyMedium,
                               textAlign: TextAlign.center,
                             ),
@@ -62,11 +64,13 @@ class SetupScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: SelectableText(
-                                'flutter run --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_ANON_KEY=your_key',
+                                'flutter run\n'
+                                '  --dart-define=SUPABASE_URL=https://x.co\n'
+                                '  --dart-define=SUPABASE_ANON_KEY=your_key',
                                 style: TextStyle(
                                   color: scheme.primary,
                                   fontFamily: 'monospace',
-                                  fontSize: 13,
+                                  fontSize: 11,
                                 ),
                               ),
                             ),

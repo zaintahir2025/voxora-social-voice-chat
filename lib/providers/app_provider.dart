@@ -77,6 +77,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<PostComment> _comments = [];
   List<PostLike> _likes = [];
   List<PostShare> _shares = [];
+  List<Story> _stories = [];
   List<GameSession> _gameSessions = [];
   List<GamePlayer> _gamePlayers = [];
   List<GameInvite> _gameInvites = [];
@@ -115,6 +116,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<PostComment> get comments => _comments;
   List<PostLike> get likes => _likes;
   List<PostShare> get shares => _shares;
+  List<Story> get stories => _activeStories();
   List<GameSession> get gameSessions => _visibleGameSessions();
   List<GamePlayer> get gamePlayers => _gamePlayers;
   List<GameInvite> get gameInvites => _gameInvites;
@@ -601,6 +603,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         _sb.from('post_likes').select().limit(2000),
         _sb.from('post_shares').select().limit(1000),
         _sb
+            .from('stories')
+            .select()
+            .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+            .order('created_at', ascending: false)
+            .limit(300),
+        _sb
             .from('game_sessions')
             .select()
             .order('created_at', ascending: false)
@@ -639,13 +647,16 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _shares = (results[6] as List)
           .map((item) => PostShare.fromJson(item))
           .toList();
-      _gameSessions = (results[7] as List)
+      _stories = (results[7] as List)
+          .map((item) => Story.fromJson(item))
+          .toList();
+      _gameSessions = (results[8] as List)
           .map((item) => GameSession.fromJson(item))
           .toList();
-      _gamePlayers = (results[8] as List)
+      _gamePlayers = (results[9] as List)
           .map((item) => GamePlayer.fromJson(item))
           .toList();
-      _gameInvites = (results[9] as List)
+      _gameInvites = (results[10] as List)
           .map((item) => GameInvite.fromJson(item))
           .toList();
 
@@ -899,6 +910,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       'post_comments',
       'post_likes',
       'post_shares',
+      'stories',
       'game_sessions',
       'game_players',
       'game_invites',
@@ -1310,6 +1322,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _comments = [];
     _likes = [];
     _shares = [];
+    _stories = [];
     _gameSessions = [];
     _gamePlayers = [];
     _gameInvites = [];
@@ -1492,6 +1505,43 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _showNotice('Post added.');
   }
 
+  Future<void> createStory({
+    required String caption,
+    required Uint8List imageBytes,
+    required String filename,
+  }) async {
+    if (_profile == null) return;
+    final upload = await _uploadPublicImageFile(
+      'stories',
+      imageBytes,
+      filename,
+      maxBytes: 15 * 1024 * 1024,
+    );
+    if (upload == null) return;
+    await _sb.from('stories').insert({
+      'author_id': _profile!.id,
+      'caption': caption.trim(),
+      'image_url': upload.url,
+      'storage_path': upload.path,
+    });
+    await refresh();
+    _showNotice('Story added for 24 hours.');
+  }
+
+  Future<void> deleteStory(Story story) async {
+    if (_profile == null || story.authorId != _profile!.id) return;
+    await _sb.from('stories').delete().eq('id', story.id);
+    if (story.storagePath.isNotEmpty) {
+      try {
+        await _sb.storage.from('stories').remove([story.storagePath]);
+      } catch (_) {
+        // The database row is the source of truth for profile visibility.
+      }
+    }
+    await refresh();
+    _showNotice('Story removed.');
+  }
+
   Future<void> editPost(SocialPost post, String caption) async {
     if (_profile == null || post.authorId != _profile!.id) return;
     await _sb
@@ -1576,6 +1626,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       _likes.where((like) => like.postId == postId).length;
   int shareCount(String postId) =>
       _shares.where((share) => share.postId == postId).length;
+
+  List<Story> activeStoriesForProfile(String userId) =>
+      _activeStories().where((story) => story.authorId == userId).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+  bool hasActiveStory(String userId) =>
+      activeStoriesForProfile(userId).isNotEmpty;
 
   List<PostComment> commentsForPost(String postId) =>
       _comments.where((comment) => comment.postId == postId).toList();
@@ -1905,6 +1962,18 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<GamePlayer> playersForGame(String gameId) =>
       _gamePlayers.where((player) => player.gameId == gameId).toList();
+
+  List<Story> _activeStories() {
+    final active = _stories.where(_storyIsActive).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return active;
+  }
+
+  bool _storyIsActive(Story story) {
+    final expiresAt = DateTime.tryParse(story.expiresAt);
+    if (expiresAt == null) return false;
+    return expiresAt.toUtc().isAfter(DateTime.now().toUtc());
+  }
 
   List<GameSession> _visibleGameSessions() {
     final myId = _profile?.id;
@@ -2414,6 +2483,21 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     String filename, {
     required int maxBytes,
   }) async {
+    final uploaded = await _uploadPublicImageFile(
+      bucket,
+      bytes,
+      filename,
+      maxBytes: maxBytes,
+    );
+    return uploaded?.url;
+  }
+
+  Future<_UploadedImage?> _uploadPublicImageFile(
+    String bucket,
+    Uint8List bytes,
+    String filename, {
+    required int maxBytes,
+  }) async {
     if (_profile == null) return null;
     final contentType = _imageContentType(filename);
     if (contentType == null) {
@@ -2438,7 +2522,10 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
             cacheControl: '31536000',
           ),
         );
-    return _sb.storage.from(bucket).getPublicUrl(path);
+    return _UploadedImage(
+      path: path,
+      url: _sb.storage.from(bucket).getPublicUrl(path),
+    );
   }
 
   String? _imageContentType(String filename) {
@@ -2465,4 +2552,11 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (error is PostgrestException) return error.message;
     return error.toString();
   }
+}
+
+class _UploadedImage {
+  final String path;
+  final String url;
+
+  const _UploadedImage({required this.path, required this.url});
 }

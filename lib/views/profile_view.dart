@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../widgets/common_widgets.dart';
@@ -22,6 +23,7 @@ class _ProfileViewState extends State<ProfileView> {
   String? _loadedProfileId;
   bool _uploadingAvatar = false;
   bool _uploadingCover = false;
+  bool _gridPosts = true;
 
   @override
   void dispose() {
@@ -48,6 +50,7 @@ class _ProfileViewState extends State<ProfileView> {
         .where((post) => post.authorId == person.id)
         .toList();
     final profileFriends = app.friendsForProfile(person.id);
+    final showStories = mine || app.hasActiveStory(person.id);
     final wide = MediaQuery.of(context).size.width >= 920;
     final summary = _profileSummary(
       app,
@@ -55,11 +58,18 @@ class _ProfileViewState extends State<ProfileView> {
       mine,
       posts.length,
       profileFriends.length,
+      app.activeStoriesForProfile(person.id).length,
     );
     final editor = mine ? _editor(app) : _profileActions(app, person);
     final friendsCard = _friendsPreview(app, person, profileFriends);
+    final storyCard = showStories ? _storiesPreview(app, person, mine) : null;
     final sidePanel = Column(
-      children: [editor, const SizedBox(height: 14), friendsCard],
+      children: [
+        if (storyCard != null) ...[storyCard, const SizedBox(height: 14)],
+        editor,
+        const SizedBox(height: 14),
+        friendsCard,
+      ],
     );
 
     final header = wide
@@ -75,6 +85,7 @@ class _ProfileViewState extends State<ProfileView> {
             children: [
               summary,
               const SizedBox(height: 14),
+              if (storyCard != null) ...[storyCard, const SizedBox(height: 14)],
               editor,
               const SizedBox(height: 14),
               friendsCard,
@@ -86,19 +97,7 @@ class _ProfileViewState extends State<ProfileView> {
       children: [
         header,
         const SizedBox(height: 24),
-        if (posts.isEmpty)
-          const EmptyState(
-            icon: Icons.photo_library_outlined,
-            title: 'No posts yet',
-            body: 'This user hasn\'t posted anything.',
-          )
-        else
-          ...posts.map(
-            (post) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: PostCard(key: ValueKey(post.id), post: post),
-            ),
-          ),
+        _postsSurface(app, person, posts),
       ],
     );
   }
@@ -109,6 +108,7 @@ class _ProfileViewState extends State<ProfileView> {
     bool mine,
     int postCount,
     int friendCount,
+    int storyCount,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final showStatus =
@@ -183,12 +183,7 @@ class _ProfileViewState extends State<ProfileView> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      UserAvatar(
-                        url: person.avatarUrl,
-                        size: 92,
-                        online: app.isProfileOnline(person),
-                        seed: person.handle,
-                      ),
+                      _ProfileStoryAvatar(app: app, person: person, size: 92),
                       if (mine)
                         Positioned(
                           right: -2,
@@ -237,6 +232,11 @@ class _ProfileViewState extends State<ProfileView> {
                             icon: Icons.people_alt_outlined,
                             label: '$friendCount friends',
                           ),
+                          if (storyCount > 0)
+                            CountChip(
+                              icon: Icons.auto_stories_outlined,
+                              label: '$storyCount stories',
+                            ),
                           if (showStatus)
                             UserStatusChip(status: app.statusFor(person)),
                         ],
@@ -270,6 +270,383 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _storiesPreview(AppProvider app, Profile person, bool mine) {
+    final stories = app.activeStoriesForProfile(person.id);
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            icon: Icons.auto_stories_outlined,
+            title: 'Stories',
+            subtitle: stories.isEmpty
+                ? 'No active stories'
+                : '${stories.length} active now',
+            trailing: mine
+                ? IconButton.filledTonal(
+                    tooltip: 'Add story',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CreateStoryPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                  )
+                : null,
+          ),
+          if (stories.isEmpty)
+            SizedBox(
+              height: 86,
+              child: Center(
+                child: mine
+                    ? OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CreateStoryPage(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: const Text('Add story'),
+                      )
+                    : Text(
+                        'No active stories',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 148,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemBuilder: (context, index) {
+                  final story = stories[index];
+                  return InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => StoryViewerPage(
+                          authorId: person.id,
+                          initialIndex: index,
+                        ),
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 86,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: scheme.primary.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    story.imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.broken_image_outlined),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      color: Colors.black54,
+                                      child: Text(
+                                        _storyRemaining(story),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (story.caption.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              story.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemCount: stories.length,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _postsSurface(
+    AppProvider app,
+    Profile person,
+    List<SocialPost> posts,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.10),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.spaceBetween,
+                children: [
+                  SizedBox(
+                    width: compact ? constraints.maxWidth : 260,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.photo_library_outlined,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Posts',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                posts.isEmpty
+                                    ? 'No drops yet'
+                                    : '${posts.length} profile drops',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    selected: {_gridPosts},
+                    onSelectionChanged: (value) {
+                      setState(() => _gridPosts = value.first);
+                    },
+                    segments: const [
+                      ButtonSegment<bool>(
+                        value: true,
+                        icon: Icon(Icons.grid_on_outlined, size: 17),
+                        label: Text('Grid'),
+                      ),
+                      ButtonSegment<bool>(
+                        value: false,
+                        icon: Icon(Icons.view_agenda_outlined, size: 17),
+                        label: Text('Feed'),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (posts.isEmpty)
+          const EmptyState(
+            icon: Icons.photo_library_outlined,
+            title: 'No posts yet',
+            body: 'This user hasn\'t posted anything.',
+          )
+        else if (_gridPosts)
+          _postGrid(app, posts)
+        else
+          ...posts.map(
+            (post) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: PostCard(key: ValueKey(post.id), post: post),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _postGrid(AppProvider app, List<SocialPost> posts) {
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      padding: const EdgeInsets.all(10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 720
+              ? 4
+              : constraints.maxWidth >= 420
+              ? 3
+              : 2;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: posts.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              final shared = app.postById(post.sharedPostId);
+              final imageUrl = post.imageUrl ?? shared?.imageUrl;
+              return InkWell(
+                onTap: () => _openPostPreview(post),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.42),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (imageUrl != null && imageUrl.isNotEmpty)
+                        Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _gridFallback(post),
+                        )
+                      else
+                        _gridFallback(post),
+                      if (post.caption.isNotEmpty)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(7),
+                            color: Colors.black.withValues(alpha: 0.45),
+                            child: Text(
+                              post.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (post.sharedPostId != null)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.52),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.ios_share_outlined,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _gridFallback(SocialPost post) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      color: scheme.primary.withValues(alpha: 0.10),
+      padding: const EdgeInsets.all(12),
+      child: Center(
+        child: Icon(
+          post.sharedPostId == null
+              ? Icons.photo_library_outlined
+              : Icons.ios_share_outlined,
+          color: scheme.primary,
+          size: 30,
+        ),
+      ),
+    );
+  }
+
+  void _openPostPreview(SocialPost post) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.86;
+        return SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 720, maxHeight: maxHeight),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: PostCard(post: post),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -536,5 +913,62 @@ class _ProfileViewState extends State<ProfileView> {
     } catch (_) {
       return 'recently';
     }
+  }
+
+  String _storyRemaining(Story story) {
+    final expiresAt = DateTime.tryParse(story.expiresAt);
+    if (expiresAt == null) return '';
+    final remaining = expiresAt.toLocal().difference(DateTime.now());
+    if (remaining.inMinutes < 1) return '<1m left';
+    if (remaining.inHours < 1) return '${remaining.inMinutes}m left';
+    return '${remaining.inHours}h left';
+  }
+}
+
+class _ProfileStoryAvatar extends StatelessWidget {
+  final AppProvider app;
+  final Profile person;
+  final double size;
+
+  const _ProfileStoryAvatar({
+    required this.app,
+    required this.person,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = app.hasActiveStory(person.id);
+    final avatar = UserAvatar(
+      url: person.avatarUrl,
+      size: active ? size - 8 : size,
+      online: app.isProfileOnline(person),
+      seed: person.handle,
+    );
+    if (!active) return avatar;
+
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StoryViewerPage(authorId: person.id),
+        ),
+      ),
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: size,
+        height: size,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [scheme.primary, VoxoraColors.accentPop],
+          ),
+        ),
+        child: Center(child: avatar),
+      ),
+    );
   }
 }
