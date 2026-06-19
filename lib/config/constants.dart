@@ -1,5 +1,11 @@
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://xssffpytngvjdjfspqac.supabase.co',
+);
+const supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhzc2ZmcHl0bmd2amRqZnNwcWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MTA3NjAsImV4cCI6MjA5NTE4Njc2MH0.-vQyJN4aD-lPYmVMuLZfBEuYw29Z3yOS1CJkXEnsbws',
+);
 const appPublicUrl = String.fromEnvironment(
   'APP_PUBLIC_URL',
   defaultValue: 'https://zaintahir2025.github.io/voxora-social-voice-chat/',
